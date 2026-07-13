@@ -1,0 +1,162 @@
+import { useMemo, useState, useRef, useEffect } from "react";
+import { Link, Outlet } from "react-router-dom";
+import { Menu, Moon, Sun, Search, Bell, Plus, X } from "lucide-react";
+import { Sidebar } from "./Sidebar";
+import { useTheme } from "@/components/theme-provider";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useFinanceStore } from "@/store/finance";
+import { useNotificationStore } from "@/store/notifications";
+import { getNotificationService } from "@/services/service-provider";
+import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
+import { highlightMatch, searchFinanceData } from "@/features/search/utils";
+
+export default function AppLayout() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const { theme, toggle } = useTheme();
+  const { transactions, budgets, accounts, goals, debts } = useFinanceStore();
+  const notifications = useNotificationStore((s) => s.notifications);
+  const unreadCount = useNotificationStore((s) => s.notifications.filter((n) => !n.read).length);
+  const nsvc = getNotificationService();
+
+  const searchResults = useMemo(() => searchFinanceData({ transactions, budgets, accounts, goals, debts }, query), [transactions, budgets, accounts, goals, debts, query]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setNotifOpen(false);
+        bellRef.current?.focus();
+      }
+    };
+    if (notifOpen) {
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+      return () => {
+        document.removeEventListener("mousedown", handleClick);
+        document.removeEventListener("keydown", handleKey);
+      };
+    }
+  }, [notifOpen]);
+
+  return (
+    <div className="min-h-screen w-full bg-background">
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((v) => !v)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+
+      <div className={cn("transition-all duration-300", collapsed ? "lg:pl-20" : "lg:pl-64")}>
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/80 backdrop-blur-md px-4 sm:px-6">
+          <button
+            className="lg:hidden grid h-9 w-9 place-items-center rounded-md hover:bg-accent"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          <div className="relative hidden md:block flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search transactions, budgets, accounts\u2026"
+              className="h-10 w-full rounded-lg border border-input bg-secondary/50 pl-9 pr-3 text-sm outline-none focus:border-ring focus:bg-background transition"
+              aria-label="Global search"
+            />
+            {query && (
+              <div className="absolute left-0 right-0 top-12 z-40 rounded-xl border border-border bg-popover p-2 shadow-elegant">
+                <div className="mb-2 flex items-center justify-between px-2 text-xs text-muted-foreground">
+                  <span>{searchResults.length ? "Results" : "No matches"}</span>
+                  <button onClick={() => setQuery("")} className="rounded p-1 hover:bg-accent" aria-label="Clear search">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {searchResults.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Try searching for a transaction, budget, account, savings goal, or debt.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {searchResults.map((result) => (
+                      <li key={`${result.kind}-${result.id}`}>
+                        <Link to={result.href} onClick={() => setQuery("")} className="flex items-start justify-between rounded-lg px-2 py-2 hover:bg-accent/70">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {highlightMatch(result.title, query)}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">{highlightMatch(result.subtitle, query)}</p>
+                          </div>
+                          <span className="ml-2 shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                            {result.kind}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" className="hidden sm:inline-flex gap-1.5">
+              <Plus className="h-4 w-4" /> Add Transaction
+            </Button>
+
+            {/* ── Notification Bell ── */}
+            <div ref={notifRef} className="relative">
+              <button
+                ref={bellRef}
+                onClick={() => setNotifOpen((v) => !v)}
+                className="grid h-9 w-9 place-items-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-destructive-foreground">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <NotificationDrawer
+                open={notifOpen}
+                notifications={notifications}
+                onMarkRead={(id) => nsvc.markAsRead(id)}
+                onMarkAllRead={() => nsvc.markAllAsRead()}
+                onDelete={(id) => nsvc.remove(id)}
+                onClearAll={() => nsvc.clearAll()}
+              />
+            </div>
+
+            <button
+              onClick={toggle}
+              className="grid h-9 w-9 place-items-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
+        </header>
+
+        <main className="p-4 sm:p-6 lg:p-8 animate-fade-in">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+
