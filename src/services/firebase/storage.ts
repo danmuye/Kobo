@@ -1,5 +1,5 @@
 import type { UploadResult } from "firebase/storage";
-import { getFirebaseStorage, isConfigured, initializeFirebase } from "./config";
+import { getFirebaseStorage, isConfigured, initializeFirebase, whenReady } from "./config";
 import { toFirebaseServiceError, type FirebaseErrorCode } from "./errors";
 import { withRetry } from "./retry";
 import { getFirebaseStatus } from "./status";
@@ -27,6 +27,7 @@ async function ensureStorageReady() {
   if (!status.isInitialized) {
     await initializeFirebase();
   }
+  await whenReady();
   return getFirebaseStorage();
 }
 

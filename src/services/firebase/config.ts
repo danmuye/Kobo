@@ -24,7 +24,10 @@ let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
 let storage: FirebaseStorage | null = null;
+
 let initPromise: Promise<void> | null = null;
+let initResolved = false;
+let initError: Error | null = null;
 let monitoringCleanup: (() => void) | null = null;
 
 function getMissingVars(): string[] {
@@ -39,7 +42,16 @@ export function getMissingConfigKeys(): string[] {
   return getMissingVars();
 }
 
+export function whenReady(): Promise<void> {
+  if (initResolved) return Promise.resolve();
+  if (initError) return Promise.reject(initError);
+  if (initPromise) return initPromise;
+  return Promise.resolve();
+}
+
 export async function initializeFirebase(): Promise<void> {
+  if (initResolved) return;
+  if (initError) return;
   if (initPromise) return initPromise;
 
   updateFirebaseStatus({ isConfigured: isConfigured() });
@@ -59,26 +71,38 @@ export async function initializeFirebase(): Promise<void> {
       const { getAuth } = await import("firebase/auth");
       const { getStorage } = await import("firebase/storage");
 
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      auth = getAuth(app);
-      storage = getStorage(app);
+      const firebaseApp = initializeApp(firebaseConfig);
+      app = firebaseApp;
+
+      const firestore = getFirestore(firebaseApp);
+      db = firestore;
+
+      const firebaseAuth = getAuth(firebaseApp);
+      auth = firebaseAuth;
+
+      const firebaseStorage = getStorage(firebaseApp);
+      storage = firebaseStorage;
 
       try {
-        await enableMultiTabIndexedDbPersistence(db);
+        await enableMultiTabIndexedDbPersistence(firestore);
       } catch (err) {
         const fbErr = err as { code?: string };
         if (fbErr.code === "failed-precondition") {
-          // Multiple tabs open — persistence is already enabled
         } else if (fbErr.code === "unimplemented") {
-          // Browser doesn't support persistence
         }
       }
 
       monitoringCleanup = startConnectionMonitoring();
+      initResolved = true;
       updateFirebaseStatus({ connection: "connected", isInitialized: true });
     } catch (err) {
+      initError = err instanceof Error ? err : new Error(String(err));
       updateFirebaseStatus({ connection: "disconnected", isInitialized: false });
+
+      if (import.meta.env.DEV) {
+        console.error("[Firebase] Initialization failed:", err);
+      }
+
       throw toFirebaseServiceError(err);
     }
   })();
@@ -87,22 +111,66 @@ export async function initializeFirebase(): Promise<void> {
 }
 
 export function getFirebaseApp(): FirebaseApp {
-  if (!app) throw toFirebaseServiceError({ code: "unconfigured", message: "Firebase not initialized" });
+  if (!initResolved) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Firebase not initialized. Call initializeFirebase() first.",
+    });
+  }
+  if (!app) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Firebase app not available.",
+    });
+  }
   return app;
 }
 
 export function getFirestoreDb(): Firestore {
-  if (!db) throw toFirebaseServiceError({ code: "unconfigured", message: "Firestore not initialized" });
+  if (!initResolved) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Firestore not initialized. Call initializeFirebase() first.",
+    });
+  }
+  if (!db) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Firestore not available.",
+    });
+  }
   return db;
 }
 
 export function getFirebaseAuth(): Auth {
-  if (!auth) throw toFirebaseServiceError({ code: "unconfigured", message: "Auth not initialized" });
+  if (!initResolved) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Auth not initialized. Call initializeFirebase() first.",
+    });
+  }
+  if (!auth) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Auth not available.",
+    });
+  }
   return auth;
 }
 
 export function getFirebaseStorage(): FirebaseStorage {
-  if (!storage) throw toFirebaseServiceError({ code: "unconfigured", message: "Storage not initialized" });
+  if (!initResolved) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Storage not initialized. Call initializeFirebase() first.",
+    });
+  }
+  if (!storage) {
+    throw toFirebaseServiceError({
+      code: "unconfigured",
+      message: "Storage not available.",
+    });
+  }
   return storage;
 }
 
@@ -114,5 +182,7 @@ export function destroyFirebase(): void {
   auth = null;
   storage = null;
   initPromise = null;
+  initResolved = false;
+  initError = null;
   updateFirebaseStatus({ connection: "disconnected", isInitialized: false });
 }

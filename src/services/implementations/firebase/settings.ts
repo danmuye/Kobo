@@ -1,5 +1,6 @@
 import type { AppearanceSettings, LocalizationSettings, AppSettings } from "@/store/settings";
 import type { ISettingsService } from "@/services/interfaces";
+import { useSettingsStore } from "@/store/settings";
 import { createCollection, type FirestoreCollection } from "@/services/firebase/firestore";
 
 interface FirebaseSettingsDoc {
@@ -15,12 +16,41 @@ export class FirebaseSettingsService implements ISettingsService {
     this.colPromise = createCollection<FirebaseSettingsDoc>(`users/${userId}/settings`);
   }
 
-  get(): AppSettings { throw new Error("Use loadAsync() for Firebase"); }
-  updateAppearance(): void { throw new Error("Async only"); }
-  updateLocalization(): void { throw new Error("Async only"); }
-  resetAll(): void { throw new Error("Async only"); }
-  restoreSettings(): void { throw new Error("Async only"); }
-  clearAllData(): void { throw new Error("Async only"); }
+  async init(): Promise<void> {
+    const loaded = await this.loadAsync();
+    if (loaded) {
+      useSettingsStore.getState().restoreSettings(loaded);
+    }
+  }
+
+  get(): AppSettings {
+    return useSettingsStore.getState().settings;
+  }
+
+  updateAppearance(patch: Partial<AppearanceSettings>): void {
+    useSettingsStore.getState().updateAppearance(patch);
+    this.persist();
+  }
+
+  updateLocalization(patch: Partial<LocalizationSettings>): void {
+    useSettingsStore.getState().updateLocalization(patch);
+    this.persist();
+  }
+
+  resetAll(): void {
+    useSettingsStore.getState().resetAll();
+    this.persist();
+  }
+
+  restoreSettings(s: AppSettings): void {
+    useSettingsStore.getState().restoreSettings(s);
+    this.persist();
+  }
+
+  clearAllData(): void {
+    useSettingsStore.getState().clearAllData();
+    this.persist();
+  }
 
   async loadAsync(): Promise<AppSettings | null> {
     const col = await this.colPromise;
@@ -30,19 +60,17 @@ export class FirebaseSettingsService implements ISettingsService {
     return { appearance: doc.appearance, localization: doc.localization };
   }
 
-  async updateAppearanceAsync(patch: Partial<AppearanceSettings>): Promise<void> {
-    const col = await this.colPromise;
-    const current = await this.loadAsync();
-    if (!current) return;
-    const merged: AppSettings = { ...current, appearance: { ...current.appearance, ...patch } };
-    await col.create({ ...merged, updatedAt: new Date().toISOString() });
-  }
-
-  async updateLocalizationAsync(patch: Partial<LocalizationSettings>): Promise<void> {
-    const col = await this.colPromise;
-    const current = await this.loadAsync();
-    if (!current) return;
-    const merged: AppSettings = { ...current, localization: { ...current.localization, ...patch } };
-    await col.create({ ...merged, updatedAt: new Date().toISOString() });
+  private async persist(): Promise<void> {
+    try {
+      const col = await this.colPromise;
+      const { settings } = useSettingsStore.getState();
+      await col.create({
+        appearance: settings.appearance,
+        localization: settings.localization,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+      // Firestore write failed — local state is already updated
+    }
   }
 }

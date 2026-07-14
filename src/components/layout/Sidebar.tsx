@@ -5,6 +5,7 @@ import {
   Wallet, Landmark, BarChart3, Settings, ChevronLeft, Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/contexts/auth-context";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -30,6 +31,13 @@ export function Sidebar({
   onMobileClose: () => void;
 }) {
   const { pathname } = useLocation();
+  const { user } = useAuthContext();
+
+  const initials = user?.displayName
+    ? user.displayName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : (user?.email?.charAt(0).toUpperCase() ?? "?");
+
+  const displayName = user?.displayName ?? user?.email ?? "User";
 
   return (
     <>
@@ -112,16 +120,16 @@ export function Sidebar({
         <div className={cn("border-t border-sidebar-border p-4", collapsed && "px-2")}>
           {collapsed ? (
             <div className="grid h-9 w-9 place-items-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold mx-auto">
-              AO
+              {initials}
             </div>
           ) : (
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 place-items-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold">
-                AO
+                {initials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-sidebar-accent-foreground">Adaeze O.</p>
-                <p className="truncate text-xs text-sidebar-foreground/60">Premium Plan</p>
+                <p className="truncate text-sm font-medium text-sidebar-accent-foreground">{displayName}</p>
+                <p className="truncate text-xs text-sidebar-foreground/60">Free Plan</p>
               </div>
             </div>
           )}

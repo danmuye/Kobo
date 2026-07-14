@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Sun, Moon, Monitor, Download, Upload, RotateCcw, Trash2, AlertTriangle, FileWarning } from "lucide-react";
+import { Sun, Moon, Monitor, Download, Upload, RotateCcw, Trash2, AlertTriangle, FileWarning, User, KeyRound, Mail, ShieldAlert, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,8 @@ import { useFinanceStore } from "@/store/finance";
 import { useNotificationStore } from "@/store/notifications";
 import { useTheme } from "@/components/theme-provider";
 import { useSettings } from "@/features/settings/hooks";
+import { useAuthContext } from "@/contexts/auth-context";
+import { useAuth } from "@/hooks/use-auth";
 import { CURRENCIES, getCurrencyDef, formatCurrency } from "@/lib/currency";
 import { exportBackupData, downloadBackup, readBackupFile, deduplicateById } from "@/services/backup";
 
@@ -71,6 +73,8 @@ const timeFormatOptions: { value: TimeFormatStyle; label: string; example: strin
 ];
 
 export default function Settings() {
+  const { user } = useAuthContext();
+  const { updateProfile, changePassword, changeEmail, deleteAccount, isLoading } = useAuth();
   const { theme, setTheme } = useTheme();
   const { settings, updateLocalization } = useSettings();
   const preferences = useNotificationStore((s) => s.preferences);
@@ -166,6 +170,86 @@ export default function Settings() {
     notify.success("Settings reset", "All settings have been restored to defaults.", "system");
   }, []);
 
+  const [profileName, setProfileName] = useState(user?.displayName ?? "");
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  const handleSaveProfile = useCallback(async () => {
+    setProfileSaving(true);
+    try {
+      await updateProfile({ displayName: profileName.trim() || undefined });
+      notify.success("Profile updated", "Your name has been saved.", "system");
+    } catch (err) {
+      notify.error("Update failed", err instanceof Error ? err.message : "Could not update profile.", "system");
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [profileName, updateProfile]);
+
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+
+  const handleChangePassword = useCallback(async () => {
+    setPwError(null);
+    if (!pwCurrent) { setPwError("Current password is required."); return; }
+    if (pwNew.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
+    setPwSaving(true);
+    try {
+      await changePassword(pwCurrent, pwNew);
+      notify.success("Password changed", "Your password has been updated.", "system");
+      setPwCurrent("");
+      setPwNew("");
+      setPwConfirm("");
+    } catch (err) {
+      setPwError(err instanceof Error ? err.message : "Could not change password.");
+    } finally {
+      setPwSaving(false);
+    }
+  }, [pwCurrent, pwNew, pwConfirm, changePassword]);
+
+  const [emailNew, setEmailNew] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const handleChangeEmail = useCallback(async () => {
+    setEmailError(null);
+    if (!emailPassword) { setEmailError("Password is required to change email."); return; }
+    if (!emailNew) { setEmailError("New email address is required."); return; }
+    setEmailSaving(true);
+    try {
+      await changeEmail(emailPassword, emailNew);
+      notify.success("Email verification sent", "Check your new email to confirm the change.", "system");
+      setEmailNew("");
+      setEmailPassword("");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Could not change email.");
+    } finally {
+      setEmailSaving(false);
+    }
+  }, [emailNew, emailPassword, changeEmail]);
+
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteSaving, setDeleteSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeleteError(null);
+    if (!deletePassword) { setDeleteError("Enter your password to delete your account."); return; }
+    setDeleteSaving(true);
+    try {
+      await deleteAccount(deletePassword);
+      notify.success("Account deleted", "Your account and data have been removed.", "system");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete account.");
+    } finally {
+      setDeleteSaving(false);
+    }
+  }, [deletePassword, deleteAccount]);
+
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" subtitle="Make Kobo work the way you do." />
@@ -183,20 +267,41 @@ export default function Settings() {
       <div className="grid gap-4 md:grid-cols-2">
         {/* ── Profile ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-profile">
-          <h3 id="settings-profile" className="font-display font-semibold">Profile</h3>
+          <h3 id="settings-profile" className="font-display font-semibold flex items-center gap-2">
+            <User className="h-4 w-4" aria-hidden />
+            Profile
+          </h3>
           <div>
             <Label htmlFor="fullName">Full name</Label>
-            <Input id="fullName" defaultValue="Adaeze Okonkwo" />
+            <Input
+              id="fullName"
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="Your display name"
+            />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue="adaeze@example.com" />
+            <Input id="email" type="email" value={user?.email ?? ""} disabled aria-disabled="true" />
+            <p className="text-xs text-muted-foreground mt-1">
+              To change your email, use the Security section below.
+            </p>
           </div>
-          <div>
-            <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" defaultValue="+234 803 000 0000" />
-          </div>
-          <Button onClick={() => notify.success("Profile saved", "", "system")}>Save changes</Button>
+          <Button onClick={handleSaveProfile} disabled={profileSaving || !profileName.trim()}>
+            {profileSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Save changes"
+            )}
+          </Button>
+          {user?.createdAt && (
+            <p className="text-xs text-muted-foreground">
+              Member since {new Date(user.createdAt).toLocaleDateString()}
+            </p>
+          )}
         </section>
 
         {/* ── Appearance ── */}
@@ -223,6 +328,169 @@ export default function Settings() {
               </Label>
             ))}
           </RadioGroup>
+        </section>
+
+        {/* ── Security ── */}
+        <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-security">
+          <h3 id="settings-security" className="font-display font-semibold flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4" aria-hidden />
+            Security
+          </h3>
+
+          {/* Change password */}
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <h4 className="font-medium text-sm">Change password</h4>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor="currentPassword">Current password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={pwCurrent}
+                  onChange={(e) => setPwCurrent(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <Label htmlFor="newPassword">New password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={pwNew}
+                  onChange={(e) => setPwNew(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirmNewPassword">Confirm new password</Label>
+                <Input
+                  id="confirmNewPassword"
+                  type="password"
+                  value={pwConfirm}
+                  onChange={(e) => setPwConfirm(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+              {pwError && (
+                <p className="text-xs text-destructive" role="alert">{pwError}</p>
+              )}
+              <Button
+                onClick={handleChangePassword}
+                disabled={pwSaving || !pwCurrent || !pwNew || !pwConfirm}
+                size="sm"
+              >
+                {pwSaving ? (
+                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Updating…</>
+                ) : (
+                  "Update password"
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Change email */}
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" aria-hidden />
+              <h4 className="font-medium text-sm">Change email</h4>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              A verification will be sent to your new email address before the change takes effect.
+            </p>
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor="newEmail">New email</Label>
+                <Input
+                  id="newEmail"
+                  type="email"
+                  value={emailNew}
+                  onChange={(e) => setEmailNew(e.target.value)}
+                  placeholder="new@example.com"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <Label htmlFor="emailPassword">Confirm password</Label>
+                <Input
+                  id="emailPassword"
+                  type="password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              {emailError && (
+                <p className="text-xs text-destructive" role="alert">{emailError}</p>
+              )}
+              <Button
+                onClick={handleChangeEmail}
+                disabled={emailSaving || !emailNew || !emailPassword}
+                size="sm"
+              >
+                {emailSaving ? (
+                  <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Sending…</>
+                ) : (
+                  "Change email"
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Delete account */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" className="w-full sm:w-auto">
+                <Trash2 className="h-4 w-4 mr-2" aria-hidden />
+                Delete account
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <FileWarning className="h-5 w-5 text-destructive" aria-hidden />
+                  Delete your account?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete your account and all associated data.
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-3 py-2">
+                <Label htmlFor="deletePassword">Enter your password to confirm</Label>
+                <Input
+                  id="deletePassword"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="Your password"
+                />
+                {deleteError && (
+                  <p className="text-xs text-destructive" role="alert">{deleteError}</p>
+                )}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => { setDeletePassword(""); setDeleteError(null); }}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={deleteSaving || !deletePassword}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteSaving ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Deleting…</>
+                  ) : (
+                    "Delete my account"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </section>
 
         {/* ── Localization ── */}

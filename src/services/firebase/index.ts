@@ -7,12 +7,20 @@ export {
   getFirebaseAuth,
   getFirebaseStorage,
   destroyFirebase,
+  whenReady,
 } from "./config";
 
 export {
   signIn, signUp, signOutUser, resetPassword,
-  onAuthChange, getCurrentUser,
+  onAuthChange, getCurrentUser, sendEmailVerification,
+  signInWithGoogle, updateUserProfile,
+  reauthenticateUser, changeUserPassword, changeUserEmail, deleteUserAccount,
 } from "./auth";
+
+export {
+  createUserDocuments, createUserDocumentsIfNeeded, userDocumentExists,
+  updateUserProfileDocument, deleteUserDocuments,
+} from "./user-service";
 
 export { createCollection, where, orderBy, limit } from "./firestore";
 export type { FirestoreCollection, QueryConstraint } from "./firestore";

@@ -1,5 +1,5 @@
-import { getSettingsService } from "@/services/service-provider";
 import type { DateFormatStyle, NumberFormatStyle, TimeFormatStyle } from "@/store/settings";
+import { useSettingsStore } from "@/store/settings";
 import { formatCurrency as _formatCurrency, getCurrencySymbol, getCurrencyDef } from "./currency";
 
 export { formatCurrency, getCurrencySymbol, getCurrencyDef } from "./currency";
@@ -15,13 +15,17 @@ const timeFormatLocale: Record<TimeFormatStyle, Intl.DateTimeFormatOptions> = {
   "24h": { hour: "2-digit", minute: "2-digit", hour12: false },
 };
 
+function getLocalization() {
+  return useSettingsStore.getState().settings.localization;
+}
+
 export const formatNaira = (amount: number, opts: { compact?: boolean } = {}) => {
-  const currency = getSettingsService().get().localization.currency;
+  const currency = getLocalization().currency;
   return _formatCurrency(amount, currency, opts);
 };
 
 export const formatDate = (iso: string) => {
-  const format = getSettingsService().get().localization.dateFormat;
+  const format = getLocalization().dateFormat;
   const date = new Date(iso);
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -40,13 +44,13 @@ export const formatDate = (iso: string) => {
 };
 
 export const formatNumber = (n: number) => {
-  const style = getSettingsService().get().localization.numberFormat;
+  const style = getLocalization().numberFormat;
   const locale = numberFormatLocale[style as NumberFormatStyle] ?? "en-US";
   return new Intl.NumberFormat(locale).format(n);
 };
 
 export const formatTime = (iso: string) => {
-  const style = getSettingsService().get().localization.timeFormat;
+  const style = getLocalization().timeFormat;
   const opts = timeFormatLocale[style as TimeFormatStyle] ?? timeFormatLocale["12h"];
   return new Date(iso).toLocaleTimeString("en-US", opts);
 };

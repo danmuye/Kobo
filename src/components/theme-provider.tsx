@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useSettingsStore } from "@/store/settings";
-import { getSettingsService } from "@/services/service-provider";
 import type { ThemeMode } from "@/store/settings";
 
 interface Ctx {
@@ -19,7 +18,7 @@ function migrateLegacyTheme() {
   if (legacy === "dark" || legacy === "light") {
     const current = useSettingsStore.getState().settings.appearance.theme;
     if (current === "light" && legacy === "dark") {
-      getSettingsService().updateAppearance({ theme: "dark" });
+      useSettingsStore.getState().updateAppearance({ theme: "dark" });
     }
     localStorage.removeItem("theme");
   }

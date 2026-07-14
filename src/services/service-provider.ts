@@ -3,7 +3,8 @@ import { LocalFinanceService } from "./implementations/localStorage/finance";
 import { LocalSettingsService } from "./implementations/localStorage/settings";
 import { LocalNotificationService } from "./implementations/localStorage/notifications";
 import { initializeFirebase, isConfigured, getMissingConfigKeys } from "./firebase/config";
-import { getFirebaseStatus, onFirebaseStatusChange, type FirebaseStatus } from "./firebase/status";
+import { getFirebaseStatus, onFirebaseStatusChange } from "./firebase/status";
+export type { FirebaseStatus } from "./firebase/status";
 
 export type BackendKind = "localStorage" | "firebase";
 
@@ -79,11 +80,26 @@ export function onBackendStatusChange(fn: (status: FirebaseStatus) => void): () 
 }
 
 export async function initializeBackend(): Promise<void> {
+  if (import.meta.env.DEV) {
+    console.log("[Backend] Initializing...");
+  }
   if (isConfigured()) {
+    if (import.meta.env.DEV) {
+      console.log("[Backend] Firebase is configured — starting initialization");
+    }
     try {
       await initializeFirebase();
+      if (import.meta.env.DEV) {
+        console.log("[Backend] Firebase initialized successfully");
+      }
     } catch {
-      // Firebase init failed — stay on localStorage
+      if (import.meta.env.DEV) {
+        console.log("[Backend] Firebase init failed — staying on localStorage");
+      }
+    }
+  } else {
+    if (import.meta.env.DEV) {
+      console.log("[Backend] Firebase not configured — using localStorage");
     }
   }
 }
@@ -132,7 +148,10 @@ export async function setBackend(
     currentLocalNotif = null;
 
     financeService = new FirebaseFinanceService(userId);
-    settingsService = new FirebaseSettingsService(userId);
+    const fbSettings = new FirebaseSettingsService(userId);
+    settingsService = fbSettings;
     notificationService = new FirebaseNotificationService(userId);
+
+    await fbSettings.init();
   }
 }

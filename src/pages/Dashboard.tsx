@@ -15,6 +15,7 @@ import { formatNaira, formatDate } from "@/lib/format";
 import { useDashboardMetrics } from "@/features/dashboard/hooks";
 import { useBudgetsPage } from "@/features/budgets/hooks";
 import { filterAndSortTransactions, paginateTransactions, type DashboardTransactionFilter, type DashboardTransactionSort } from "@/features/dashboard/utils";
+import { useAuthContext } from "@/contexts/auth-context";
 
 const COLORS = [
   "hsl(159 64% 45%)", "hsl(217 91% 60%)", "hsl(38 92% 50%)",
@@ -23,6 +24,8 @@ const COLORS = [
 ];
 
 export default function Dashboard() {
+  const { user } = useAuthContext();
+  const greetingName = user?.displayName ?? user?.email?.split("@")[0] ?? "there";
   const { totalBalance, income, expenses, savings, monthlyChart, categoryData, cashFlow, totalSaved, totalTarget, monthlySavings, recentTransactions } = useDashboardMetrics();
   const transactions = recentTransactions;
   const { budgets: budgetsWithProgress } = useBudgetsPage();
@@ -55,7 +58,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Welcome back, Adaeze 👋"
+        title={`Welcome back, ${greetingName}`}
         subtitle="Here's how your money is moving this month."
         action={
           <>

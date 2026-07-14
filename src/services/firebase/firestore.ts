@@ -1,5 +1,5 @@
 import type { Firestore, QueryConstraint, DocumentData, CollectionReference, DocumentReference } from "firebase/firestore";
-import { getFirestoreDb, isConfigured, initializeFirebase } from "./config";
+import { getFirestoreDb, isConfigured, initializeFirebase, whenReady } from "./config";
 import { toFirebaseServiceError, type FirebaseErrorCode } from "./errors";
 import { withRetry } from "./retry";
 import { getFirebaseStatus } from "./status";
@@ -27,6 +27,7 @@ async function ensureFirestoreReady(): Promise<Firestore> {
   if (!status.isInitialized) {
     await initializeFirebase();
   }
+  await whenReady();
   return getFirestoreDb();
 }
 

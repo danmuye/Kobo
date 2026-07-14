@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useFinanceStore, getBudgetPercentSpent, getGoalDaysRemaining } from "@/store/finance";
-import { getNotificationService, getSettingsService } from "@/services/service-provider";
+import { useSettingsStore } from "@/store/settings";
+import { getNotificationService } from "@/services/service-provider";
 import { notify } from "@/services/notifications";
 import { formatCurrency } from "@/lib/format";
 
@@ -55,7 +56,7 @@ export function useAutoNotifications() {
 
   useEffect(() => {
     const prefs = getNotificationService().getPreferences();
-    const currency = getSettingsService().get().localization.currency;
+    const currency = useSettingsStore.getState().settings.localization.currency;
 
     if (prefs.budgetAlerts) {
       for (const budget of budgets) {
