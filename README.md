@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Welcome Kobo Fince 
 
-TODO: Document your project here
+A budget and finance tracker
