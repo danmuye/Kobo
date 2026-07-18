@@ -104,7 +104,7 @@ export default function Index() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold">This month at a glance</p>
-                  <p className="text-xs text-muted-foreground">A realistic snapshot powered by your sample data.</p>
+                  <p className="text-xs text-muted-foreground">Your financial overview at a glance.</p>
                 </div>
                 <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                   +12.4% saved

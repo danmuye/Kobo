@@ -248,7 +248,7 @@ export default function Dashboard() {
         </div>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {budgetsWithProgress.slice(0, 8).map((b) => (
-            <BudgetCard key={b.id} budget={b} />
+            <BudgetCard key={b.id} budget={b} metrics={b.metrics} />
           ))}
         </div>
       </section>

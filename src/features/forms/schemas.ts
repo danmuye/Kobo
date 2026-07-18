@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Account, AccountType, Budget, Debt, SavingsGoal, Transaction } from "@/types";
+import type { Account, AccountType, Budget, Debt, Goal, Transaction } from "@/types";
 
 const attachmentValueSchema = z.union([z.array(z.string()), z.string()]).optional().default([]);
 
@@ -15,6 +15,9 @@ export const transactionSchema = z.object({
   receiptUrl: z.string().optional().default(""),
   fromAccount: z.string().optional().default(""),
   toAccount: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
+  merchant: z.string().optional().default(""),
+  budgetId: z.string().optional().default(""),
 }).superRefine((values, ctx) => {
   if (values.type === "transfer") {
     if (!values.fromAccount?.trim()) {
@@ -34,164 +37,98 @@ export const transactionSchema = z.object({
   }
 });
 
-/** Shape shared by the base budget schema (without cross-budget overlap checks). */
-const budgetBaseSchema = z.object({
+export const budgetSchema = z.object({
   name: z.string().min(1, "Budget name is required"),
   category: z.string().min(1, "Category is required"),
   icon: z.string().min(1, "Icon is required"),
   amount: z.number({ invalid_type_error: "Enter a valid amount" })
     .finite("Amount must be a finite number")
     .positive("Budget amount must be greater than 0"),
-  spent: z.number({ invalid_type_error: "Enter a valid amount" })
-    .finite("Spent must be a finite number")
-    .nonnegative("Spent cannot be negative"),
-  period: z.enum(["weekly", "monthly", "yearly"], { errorMap: () => ({ message: "Select a budget period" }) }),
+  period: z.enum(["Monthly", "Weekly", "Yearly", "Custom"], { errorMap: () => ({ message: "Select a budget period" }) }),
   startDate: z.string().optional().default(""),
   endDate: z.string().optional().default(""),
-});
+  color: z.string().optional().default(""),
+  notes: z.string().optional().default(""),
+  accounts: z.string().optional().default(""),
+  wallets: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
+}).superRefine((values, ctx) => {
+  const { startDate, endDate } = values;
 
-/** Adds date-range validation (valid dates, end after start) to the base schema. */
-function withDateRangeValidation<T extends typeof budgetBaseSchema>(schema: T) {
-  return schema.superRefine((values, ctx) => {
-    const { startDate, endDate } = values;
+  if (values.period === "Custom") {
+    if (!startDate) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startDate"], message: "Start date is required for custom period" });
+    if (!endDate) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date is required for custom period" });
+  }
 
-    // If only one of the pair is provided, the range is incomplete
-    if (startDate && !endDate) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date is required when a start date is set" });
+  if (startDate) {
+    const start = new Date(startDate);
+    if (Number.isNaN(start.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startDate"], message: "Invalid start date" });
     }
-    if (endDate && !startDate) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startDate"], message: "Start date is required when an end date is set" });
-    }
+  }
 
-    if (startDate) {
+  if (endDate) {
+    const end = new Date(endDate);
+    if (Number.isNaN(end.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "Invalid end date" });
+    } else if (startDate) {
       const start = new Date(startDate);
-      if (Number.isNaN(start.getTime())) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startDate"], message: "Invalid start date" });
-      } else {
-        // Reject start dates in the past
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (start < today) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["startDate"], message: "Start date cannot be in the past" });
-        }
+      if (!Number.isNaN(start.getTime()) && end <= start) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be after start date" });
       }
     }
-
-    if (endDate) {
-      const end = new Date(endDate);
-      if (Number.isNaN(end.getTime())) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "Invalid end date" });
-      } else if (startDate) {
-        const start = new Date(startDate);
-        if (!Number.isNaN(start.getTime()) && end <= start) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["endDate"], message: "End date must be after start date" });
-        }
-      }
-    }
-  });
-}
-
-/** Default budget schema — no overlap checking against other budgets. */
-export const budgetSchema = withDateRangeValidation(budgetBaseSchema);
-
-/**
- * Builds a budget schema that additionally rejects overlapping budget periods
- * for the same category:
- * - Two budgets with custom date ranges in the same category cannot have
- *   overlapping start/end windows.
- * - Two recurring budgets (no custom dates) in the same category with the
- *   same period (weekly/monthly/yearly) are considered duplicates.
- *
- * @param existingBudgets Budgets already in the store.
- * @param excludeId Id of the budget being edited (excluded from the overlap check).
- */
-export function createBudgetSchema(existingBudgets: Budget[], excludeId?: string) {
-  return withDateRangeValidation(budgetBaseSchema).superRefine((values, ctx) => {
-    const others = existingBudgets.filter((b) => b.id !== excludeId && b.category === values.category);
-    if (others.length === 0) return;
-
-    const hasCustomRange = Boolean(values.startDate && values.endDate);
-    const newStart = hasCustomRange ? new Date(values.startDate).getTime() : undefined;
-    const newEnd = hasCustomRange ? new Date(values.endDate).getTime() : undefined;
-
-    for (const other of others) {
-      const otherHasCustomRange = Boolean(other.startDate && other.endDate);
-
-      if (hasCustomRange && otherHasCustomRange) {
-        const otherStart = new Date(other.startDate!).getTime();
-        const otherEnd = new Date(other.endDate!).getTime();
-        const overlaps = newStart! <= otherEnd && otherStart <= newEnd!;
-        if (overlaps) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["startDate"],
-            message: `Overlaps with "${other.name}" (${other.startDate} – ${other.endDate}) in the same category`,
-          });
-          return;
-        }
-      } else if (!hasCustomRange && !otherHasCustomRange && other.period === values.period) {
-        // Two recurring budgets, same category, same period = duplicate
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["category"],
-          message: `A ${values.period} budget for "${values.category}" already exists ("${other.name}")`,
-        });
-        return;
-      }
-    }
-  });
-}
+  }
+});
 
 export const goalSchema = z.object({
   name: z.string().min(1, "Goal name is required"),
-  target: z.number({ invalid_type_error: "Enter a valid amount" })
+  targetAmount: z.number({ invalid_type_error: "Enter a valid amount" })
     .finite("Target must be a finite number")
     .positive("Target must be greater than 0"),
-  saved: z.number({ invalid_type_error: "Enter a valid amount" })
-    .finite("Saved amount must be a finite number")
-    .nonnegative("Saved amount cannot be negative"),
-  deadline: z.string().min(1, "Deadline is required"),
+  targetDate: z.string().min(1, "Target date is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  fundingType: z.enum(["Income", "Savings Transfer", "Manual Deposit", "Mixed"]),
+  categories: z.string().optional().default(""),
+  accounts: z.string().optional().default(""),
+  wallets: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
+  color: z.string().optional().default("#8b5cf6"),
   icon: z.string().min(1, "Icon is required"),
-}).superRefine((values, ctx) => {
-  // Saved cannot exceed target
-  if (values.saved > values.target) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["saved"],
-      message: `Saved amount (${values.saved.toLocaleString()}) cannot exceed the target (${values.target.toLocaleString()})`,
-    });
-  }
-
-  // Deadline must be in the future
-  const deadline = new Date(values.deadline);
-  if (!Number.isNaN(deadline.getTime())) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (deadline <= today) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["deadline"],
-        message: "Deadline must be a future date",
-      });
-    }
-  }
+  priority: z.enum(["low", "medium", "high"]).optional().default("medium"),
+  notes: z.string().optional().default(""),
+  autoTrack: z.boolean().optional().default(true),
+  includeTransfers: z.boolean().optional().default(false),
 });
+
+const debtTypeOptions = ["Loan", "Credit Card", "Mortgage", "Personal", "Business", "Other"] as const;
+const repaymentTypeOptions = ["Fixed", "Minimum", "Interest Only", "Custom"] as const;
 
 export const debtSchema = z.object({
   name: z.string().min(1, "Debt name is required"),
   lender: z.string().min(1, "Lender is required"),
-  balance: z.number().nonnegative("Balance cannot be negative"),
-  originalAmount: z.number().nonnegative("Original amount cannot be negative"),
-  interestRate: z.number().nonnegative("Interest rate cannot be negative"),
-  minPayment: z.number().nonnegative("Minimum payment cannot be negative"),
+  originalAmount: z.number({ invalid_type_error: "Enter a valid amount" })
+    .finite("Amount must be a finite number")
+    .nonnegative("Original amount cannot be negative"),
+  interestRate: z.number().nonnegative("Interest rate cannot be negative").optional().default(0),
+  debtType: z.enum(debtTypeOptions, { errorMap: () => ({ message: "Select a debt type" }) }).default("Loan"),
+  repaymentType: z.enum(repaymentTypeOptions, { errorMap: () => ({ message: "Select a repayment type" }) }).default("Fixed"),
+  minimumPayment: z.number().nonnegative("Minimum payment cannot be negative").default(0),
   dueDate: z.string().min(1, "Due date is required"),
+  startDate: z.string().min(1, "Start date is required"),
+  categories: z.string().optional().default(""),
+  accounts: z.string().optional().default(""),
+  wallets: z.string().optional().default(""),
+  tags: z.string().optional().default(""),
+  color: z.string().optional().default("#ef4444"),
+  icon: z.string().optional().default("credit-card"),
+  notes: z.string().optional().default(""),
+  includeTransfers: z.boolean().optional().default(false),
 });
 
 export const accountSchema = z.object({
   name: z.string().min(1, "Account name is required"),
   bank: z.string().min(1, "Bank or provider is required"),
   type: z.enum(["bank", "credit_card", "mobile_wallet", "cash", "investment"] as [AccountType, ...AccountType[]], { errorMap: () => ({ message: "Select an account type" }) }),
-  balance: z.number().nonnegative("Balance cannot be negative"),
   currency: z.string().min(1, "Currency is required"),
   color: z.string().min(1, "Color is required"),
   icon: z.string().min(1, "Icon is required"),
@@ -199,10 +136,17 @@ export const accountSchema = z.object({
   notes: z.string().max(500).optional().default(""),
 });
 
+export type DebtFormValues = z.infer<typeof debtSchema>;
 export type TransactionFormValues = z.infer<typeof transactionSchema>;
 export type BudgetFormValues = z.infer<typeof budgetSchema>;
 export type GoalFormValues = z.infer<typeof goalSchema>;
-export type DebtFormValues = z.infer<typeof debtSchema>;
+
+function splitCsv(s: string): string[] {
+  return s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 export type AccountFormValues = z.infer<typeof accountSchema>;
 
 export const toTransactionPayload = (values: TransactionFormValues): Omit<Transaction, "id"> => {
@@ -213,7 +157,7 @@ export const toTransactionPayload = (values: TransactionFormValues): Omit<Transa
         .map((entry) => entry.trim())
         .filter(Boolean);
 
-  return {
+  const payload: Omit<Transaction, "id"> = {
     date: new Date(values.date).toISOString(),
     description: values.description,
     category: values.category,
@@ -223,46 +167,101 @@ export const toTransactionPayload = (values: TransactionFormValues): Omit<Transa
     notes: values.notes ?? "",
     attachments,
     receiptUrl: values.receiptUrl || null,
-    fromAccount: values.type === "transfer" ? values.fromAccount?.trim() || undefined : undefined,
-    toAccount: values.type === "transfer" ? values.toAccount?.trim() || undefined : undefined,
   };
+  if (values.type === "transfer") {
+    payload.fromAccount = values.fromAccount?.trim() || "";
+    payload.toAccount = values.toAccount?.trim() || "";
+  }
+  if (values.tags) {
+    payload.tags = values.tags.split(",").map((t) => t.trim()).filter(Boolean);
+  }
+  if (values.merchant) {
+    payload.merchant = values.merchant.trim();
+  }
+  payload.budgetId = values.budgetId || null;
+  return payload;
 };
 
-export const toBudgetPayload = (values: BudgetFormValues): Omit<Budget, "id"> => ({
-  name: values.name,
-  category: values.category,
-  icon: values.icon,
-  amount: values.amount,
-  spent: values.spent,
-  period: values.period,
-  startDate: values.startDate || undefined,
-  endDate: values.endDate || undefined,
-});
-export const toGoalPayload = (values: GoalFormValues): Omit<SavingsGoal, "id"> => ({
-  name: values.name,
-  target: values.target,
-  saved: values.saved,
-  deadline: values.deadline,
-  icon: values.icon,
-  createdAt: new Date().toISOString(),
-});
-export const toDebtPayload = (values: DebtFormValues): Omit<Debt, "id"> => ({
-  name: values.name,
-  lender: values.lender,
-  balance: values.balance,
-  originalAmount: values.originalAmount,
-  interestRate: values.interestRate,
-  minPayment: values.minPayment,
-  dueDate: values.dueDate,
-});
-export const toAccountPayload = (values: AccountFormValues): Omit<Account, "id"> => ({
-  name: values.name,
-  bank: values.bank,
-  type: values.type,
-  balance: values.balance,
-  currency: values.currency,
-  color: values.color,
-  icon: values.icon,
-  openingBalance: values.openingBalance,
-  notes: values.notes || undefined,
-});
+export const toBudgetPayload = (values: BudgetFormValues): Omit<Budget, "id"> => {
+  const now = new Date().toISOString();
+  const payload: Omit<Budget, "id"> = {
+    name: values.name,
+    categories: values.category ? [values.category] : [],
+    icon: values.icon,
+    amount: values.amount,
+    period: values.period,
+    color: values.color || "#3b82f6",
+    createdAt: now,
+    updatedAt: now,
+  };
+  if (values.startDate) payload.startDate = values.startDate;
+  if (values.endDate) payload.endDate = values.endDate;
+  if (values.notes) payload.notes = values.notes;
+  if (values.accounts) payload.accounts = splitCsv(values.accounts);
+  if (values.wallets) payload.wallets = splitCsv(values.wallets);
+  if (values.tags) payload.tags = splitCsv(values.tags);
+  return payload;
+};
+export const toGoalPayload = (values: GoalFormValues): Omit<Goal, "id"> => {
+  const now = new Date().toISOString();
+  return {
+    name: values.name,
+    targetAmount: values.targetAmount,
+    targetDate: values.targetDate,
+    startDate: values.startDate,
+    fundingType: values.fundingType,
+    categories: splitCsv(values.categories),
+    accounts: splitCsv(values.accounts),
+    wallets: splitCsv(values.wallets),
+    tags: splitCsv(values.tags),
+    color: values.color || "#8b5cf6",
+    icon: values.icon,
+    priority: values.priority,
+    notes: values.notes,
+    autoTrack: values.autoTrack,
+    includeTransfers: values.includeTransfers,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+export const toDebtPayload = (values: DebtFormValues): Omit<Debt, "id"> => {
+  const now = new Date().toISOString();
+  return {
+    name: values.name,
+    lender: values.lender,
+    originalAmount: values.originalAmount,
+    interestRate: values.interestRate ?? 0,
+    debtType: values.debtType,
+    repaymentType: values.repaymentType,
+    minimumPayment: values.minimumPayment,
+    dueDate: values.dueDate,
+    startDate: values.startDate,
+    categories: splitCsv(values.categories),
+    accounts: splitCsv(values.accounts),
+    wallets: splitCsv(values.wallets),
+    tags: splitCsv(values.tags),
+    color: values.color || "#ef4444",
+    icon: values.icon || "credit-card",
+    notes: values.notes,
+    includeTransfers: values.includeTransfers,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+export const toAccountPayload = (values: AccountFormValues): Omit<Account, "id"> => {
+  const now = new Date().toISOString();
+  const payload: Omit<Account, "id"> = {
+    name: values.name,
+    bank: values.bank,
+    type: values.type,
+    balance: values.openingBalance,
+    currency: values.currency,
+    color: values.color,
+    icon: values.icon,
+    openingBalance: values.openingBalance,
+    notes: values.notes ?? "",
+    createdAt: now,
+    updatedAt: now,
+  };
+  return payload;
+};

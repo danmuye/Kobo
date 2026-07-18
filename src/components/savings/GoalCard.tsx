@@ -1,14 +1,21 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Target, Plane, Laptop, Home, Shield, Plus, type LucideIcon } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Target, Shield, Plane, Laptop, Home, MoreVertical, Eye, Edit3, Trash2, BarChart3, Sparkles, Tag, Heart, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatNaira, formatDate } from "@/lib/format";
-import type { SavingsGoal, GoalContributionEntry } from "@/types";
-import type { GoalProgressInfo } from "@/store/finance";
-import { ContributionHistory } from "@/components/savings/ContributionHistory";
-const iconMap: Record<string, LucideIcon> = {
+import type { Goal } from "@/types";
+import type { GoalMetrics, GoalStatusInfo } from "@/store/finance";
+import { getGoalStatus } from "@/store/finance";
+
+const iconMap: Record<string, typeof Target> = {
   shield: Shield,
   plane: Plane,
   laptop: Laptop,
@@ -16,80 +23,81 @@ const iconMap: Record<string, LucideIcon> = {
   target: Target,
 };
 
-interface GoalWithProgress extends SavingsGoal {
-  progress: GoalProgressInfo;
+interface GoalWithMetrics extends Goal {
+  metrics: GoalMetrics;
 }
 
 interface GoalCardProps {
-  goal: GoalWithProgress;
-  contributions: GoalContributionEntry[];
-  milestones: import("@/types").GoalMilestone[];
-  onEdit?: (g: SavingsGoal) => void;
-  onDelete?: (id: string) => void;
-  onAddContribution?: (goalId: string) => void;
-  onEditContribution?: (c: GoalContributionEntry) => void;
-  onDeleteContribution?: (id: string) => void;
+  goal: GoalWithMetrics;
+  onEdit?: (g: Goal) => void;
+  onDelete?: (g: Goal) => void;
+  onAddContribution?: (g: Goal) => void;
+  onViewTransactions?: (g: Goal) => void;
+  onViewAnalytics?: (g: Goal) => void;
 }
 
-// ── Status helpers ───────────────────────────────────────────────────────────
+const GOAL_TAG_OPTIONS = ["Vacation", "Emergency", "Education", "Business", "Rent", "Car", "House", "Medical", "Wedding", "Investment"];
 
-type GoalStatus = "completed" | "on-track" | "behind" | "overdue";
-
-function getGoalStatus(progress: GoalProgressInfo): GoalStatus {
-  if (progress.remaining <= 0) return "completed";
-  if (progress.daysRemaining <= 0) return "overdue";
-  if (progress.onTrack) return "on-track";
-  return "behind";
-}
-
-const statusConfig: Record<GoalStatus, { label: string; tone: "success" | "warning" | "destructive" | "default" }> = {
-  completed: { label: "Completed", tone: "success" },
-  "on-track": { label: "On Track", tone: "success" },
-  behind: { label: "Behind", tone: "warning" },
-  overdue: { label: "Overdue", tone: "destructive" },
-};
-
-// ── Circular progress ────────────────────────────────────────────────────────
-
-function CircularProgress({ pct, size = 100, strokeWidth = 8, gradientId }: { pct: number; size?: number; strokeWidth?: number; gradientId: string }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (Math.min(pct, 100) / 100) * circumference;
-  const center = size / 2;
-
+function HealthIndicator({ score }: { score: number }) {
+  const color = score >= 70 ? "text-success" : score >= 40 ? "text-warning" : "text-destructive";
   return (
-    <svg width={size} height={size} className="shrink-0 -rotate-90">
-      <circle cx={center} cy={center} r={radius} fill="none" stroke="hsl(var(--secondary))" strokeWidth={strokeWidth} />
-      <motion.circle
-        cx={center} cy={center} r={radius} fill="none"
-        stroke={`url(#${gradientId})`} strokeWidth={strokeWidth} strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: offset }}
-        transition={{ duration: 1.2, ease: "easeOut" }}
-      />
-      <defs>
-        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="hsl(217 91% 60%)" />
-          <stop offset="100%" stopColor="hsl(159 64% 45%)" />
-        </linearGradient>
-      </defs>
-    </svg>
+    <div className="flex items-center gap-1 text-[11px]" title={`Health score: ${score}/100`}>
+      <Heart className={cn("h-3 w-3", color)} fill="currentColor" fillOpacity={score / 100} />
+      <span className={cn("font-medium", color)}>{score}</span>
+    </div>
   );
 }
 
-// ── Card ─────────────────────────────────────────────────────────────────────
+function ProgressBar({ pct, color }: { pct: number; color: string }) {
+  return (
+    <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct.toFixed(1)}% of target`}>
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.min(pct, 100)}%` }}
+        transition={{ duration: 0.9, ease: "easeOut" }}
+        className="h-full rounded-full relative overflow-hidden"
+        style={{ backgroundColor: color }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" style={{ backgroundSize: "1000px 100%" }} />
+      </motion.div>
+      {pct > 100 && (
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.min(pct - 100, 30)}%` }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="absolute right-0 top-0 h-full"
+          style={{ backgroundColor: color, opacity: 0.5, borderLeft: "2px solid", borderColor: color }}
+        />
+      )}
+    </div>
+  );
+}
 
-export function GoalCard({
-  goal, contributions, milestones, onEdit, onDelete,
-  onAddContribution, onEditContribution, onDeleteContribution,
-}: GoalCardProps) {
-  const { progress } = goal;
+export function GoalCard({ goal, onEdit, onDelete, onAddContribution, onViewTransactions, onViewAnalytics }: GoalCardProps) {
+  const { metrics } = goal;
   const Icon = iconMap[goal.icon] ?? Target;
-  const status = getGoalStatus(progress);
-  const cfg = statusConfig[status];
-  const isComplete = status === "completed";
-  const [showContribs, setShowContribs] = useState(false);
+  const statusInfo: GoalStatusInfo = getGoalStatus(metrics.percentage, metrics.isCompleted, metrics.isExpired);
+  const { label, tone, value } = statusInfo;
+
+  const toneBg: Record<string, string> = {
+    blue: "bg-blue-500/15 text-blue-500 hover:bg-blue-500/15",
+    green: "bg-green-500/15 text-green-500 hover:bg-green-500/15",
+    amber: "bg-amber-500/15 text-amber-500 hover:bg-amber-500/15",
+    purple: "bg-purple-500/15 text-purple-500 hover:bg-purple-500/15",
+    destructive: "bg-destructive/15 text-destructive hover:bg-destructive/15",
+  };
+
+  const toneColors: Record<string, string> = {
+    blue: "hsl(217 91% 60%)",
+    green: "hsl(142 71% 45%)",
+    amber: "hsl(38 92% 50%)",
+    purple: "hsl(271 76% 53%)",
+    destructive: "hsl(0 84% 60%)",
+  };
+
+  const barColor = toneColors[tone] ?? toneColors.blue;
+
+  const goalTags = goal.tags.filter((t) => GOAL_TAG_OPTIONS.includes(t));
 
   return (
     <motion.div
@@ -98,145 +106,161 @@ export function GoalCard({
       whileHover={{ y: -4 }}
       className={cn(
         "group relative overflow-hidden rounded-xl border bg-card p-5 shadow-elegant hover:shadow-elevated transition-all",
-        status === "overdue" ? "border-destructive/40" : "border-border",
+        value === "expired" ? "border-destructive/40" : value === "exceeded" || value === "completed" ? "border-purple-500/40" : "border-border",
       )}
     >
-      {status === "overdue" && (
-        <div className="absolute inset-x-0 top-0 h-1 bg-destructive" aria-hidden />
-      )}
+      {value === "expired" && <div className="absolute inset-x-0 top-0 h-1 bg-destructive" aria-hidden />}
+      {(value === "exceeded" || value === "completed") && <div className="absolute inset-x-0 top-0 h-1 bg-purple-500" aria-hidden />}
 
-      {/* Header row */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn(
-            "grid h-12 w-12 shrink-0 place-items-center rounded-xl",
-            isComplete ? "bg-success/10 text-success" :
-            status === "overdue" ? "bg-destructive/10 text-destructive" :
-            "bg-primary/10 text-primary",
-          )}>
-            <Icon className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-display font-semibold truncate">{goal.name}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Target {formatNaira(goal.target)}
-            </p>
-          </div>
+      {/* Celebration sparkles for completed goals */}
+      <AnimatePresence>
+        {value === "completed" && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute top-3 right-12"
+          >
+            <Sparkles className="h-5 w-5 text-purple-500 animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex items-start gap-4">
+        <div className={cn(
+          "grid h-12 w-12 shrink-0 place-items-center rounded-xl",
+          value === "completed" || value === "exceeded" ? "bg-purple-500/10 text-purple-500" :
+          value === "expired" ? "bg-destructive/10 text-destructive" :
+          value === "behind" ? "bg-amber-500/10 text-amber-500" :
+          "bg-primary/10 text-primary",
+        )}>
+          <Icon className="h-6 w-6" />
         </div>
-        <Badge
-          className={cn(
-            "shrink-0 text-xs",
-            cfg.tone === "success" && "bg-success/15 text-success hover:bg-success/15",
-            cfg.tone === "warning" && "bg-warning/15 text-warning hover:bg-warning/15",
-            cfg.tone === "destructive" && "bg-destructive/15 text-destructive hover:bg-destructive/15",
-            cfg.tone === "default" && "bg-muted/30 text-muted-foreground hover:bg-muted/30",
-          )}
-          variant="secondary"
-        >
-          {cfg.label}
-        </Badge>
-
-        {/* Milestone badges */}
-        <div className="flex flex-wrap gap-1 justify-end">
-          {milestones
-            .filter((m) => m.goalId === goal.id)
-            .sort((a, b) => a.pct - b.pct)
-            .map((m) => (
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-display font-semibold truncate">{goal.name}</h3>
+            <div className="flex items-center gap-1.5 shrink-0">
               <Badge
-                key={m.id}
-                variant="outline"
-                className="text-[10px] border-primary/40 text-primary"
-                title={`${m.pct}% milestone reached`}
+                className={cn("text-xs", toneBg[tone] ?? toneBg.blue)}
+                variant="secondary"
               >
-                {m.pct}%
+                {label}
               </Badge>
-            ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => onAddContribution?.(goal)}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Contribution
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit?.(goal)}>
+                    <Edit3 className="h-4 w-4 mr-2" /> Edit Goal
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onViewTransactions?.(goal)}>
+                    <Eye className="h-4 w-4 mr-2" /> View Transactions
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onViewAnalytics?.(goal)}>
+                    <BarChart3 className="h-4 w-4 mr-2" /> View Analytics
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onDelete?.(goal)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete Goal
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5 capitalize">
+            {goal.fundingType} &bull; Target {formatNaira(goal.targetAmount)}
+          </p>
+          {goalTags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {goalTags.map((tag) => (
+                <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">
+                  <Tag className="h-2.5 w-2.5 mr-0.5" /> {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Body: circular progress + stats */}
-      <div className="mt-5 flex items-center gap-5">
-        <div className="relative shrink-0">
-          <CircularProgress pct={progress.pct} size={96} strokeWidth={7} gradientId={`goalGrad-${goal.id}`} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="font-display text-lg font-bold leading-none">{progress.pct.toFixed(0)}%</span>
-            <span className="text-[10px] text-muted-foreground mt-0.5">saved</span>
+      <div className="mt-5 space-y-3">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <span>Progress</span>
+          <div className="flex items-center gap-3">
+            <HealthIndicator score={metrics.healthScore} />
+            <span>{metrics.percentage.toFixed(1)}%</span>
           </div>
         </div>
-        <div className="flex-1 space-y-2 min-w-0">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Saved</span>
-            <span className="font-semibold">{formatNaira(progress.saved)}</span>
+
+        <ProgressBar pct={metrics.percentage} color={barColor} />
+
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <motion.div
+            className="rounded-lg border border-border/70 bg-muted/30 p-2.5"
+            key={`saved-${metrics.saved}`}
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.02, 1] }}
+            transition={{ duration: 0.3 }}
+          >
+            <span className="text-muted-foreground block">Saved</span>
+            <span className="font-semibold text-sm">{formatNaira(metrics.saved)}</span>
+          </motion.div>
+          <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+            <span className="text-muted-foreground block">Remaining</span>
+            <span className="font-semibold text-sm">{formatNaira(metrics.remaining)}</span>
           </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Remaining</span>
-            <span className="font-semibold">{formatNaira(progress.remaining)}</span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
+        </div>
+
+        <Button
+          size="sm"
+          className="w-full gap-1.5"
+          onClick={() => onAddContribution?.(goal)}
+        >
+          <Plus className="h-3.5 w-3.5" /> Add Contribution
+        </Button>
+
+        <div className="space-y-1.5 text-xs">
+          <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Days left</span>
-            <span className={cn("font-semibold", progress.daysRemaining <= 0 ? "text-destructive" : "text-foreground")}>
-              {progress.daysRemaining <= 0 ? "Overdue" : `${progress.daysRemaining}d`}
+            <span className={cn("font-semibold", metrics.isExpired ? "text-destructive" : "text-foreground")}>
+              {metrics.isExpired ? "Expired" : `${metrics.daysRemaining}d`}
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Required daily</span>
+            <span className="font-semibold">{formatNaira(metrics.requiredDailySaving)}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Avg daily</span>
+            <span className="font-semibold">{formatNaira(metrics.averageDailySaving)}</span>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Est. completion</span>
             <span className="font-semibold">
-              {progress.estimatedCompletion ? formatDate(progress.estimatedCompletion) : "—"}
+              {metrics.estimatedCompletionDate ? formatDate(metrics.estimatedCompletionDate) : "—"}
             </span>
           </div>
-        </div>
-      </div>
-
-      {/* Monthly needed / rate footer */}
-      <div className="mt-4 rounded-lg border border-border/70 bg-muted/30 p-3 text-xs">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Monthly needed</span>
-          <span className="font-semibold">{formatNaira(progress.monthlyNeeded)}</span>
-        </div>
-        <div className="mt-1 flex items-center justify-between">
-          <span className="text-muted-foreground">Current rate</span>
-          <span className="font-semibold">{formatNaira(progress.monthlyRate)}/mo</span>
-        </div>
-      </div>
-
-      {/* Contributions section */}
-      <div className="mt-4">
-        <button
-          type="button"
-          onClick={() => setShowContribs(!showContribs)}
-          className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition"
-        >
-          <span>Contributions ({progress.contributionCount})</span>
-          <span className="text-[10px]">{showContribs ? "▲" : "▼"}</span>
-        </button>
-
-        {showContribs && (
-          <div className="mt-2">
-            <ContributionHistory
-              contributions={contributions}
-              goalId={goal.id}
-              pageSize={5}
-              onEdit={onEditContribution}
-              onDelete={onDeleteContribution}
-              showSort
-              showPagination
-              compact
-            />
+          {metrics.completionDate && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Completed</span>
+              <span className="font-semibold text-success">{formatDate(metrics.completionDate)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Transactions</span>
+            <span className="font-semibold">{metrics.transactionCount}</span>
           </div>
-        )}
-      </div>
-
-      {/* Action buttons */}
-      <div className="mt-4 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onAddContribution?.(goal.id)}>
-          <Plus className="h-3.5 w-3.5 mr-1" /> Add
-        </Button>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit?.(goal)}>
-          Edit
-        </Button>
-        <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => onDelete?.(goal.id)}>
-          Delete
-        </Button>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Monthly avg</span>
+            <span className="font-semibold">{formatNaira(metrics.averageMonthlyRate)}</span>
+          </div>
+        </div>
       </div>
     </motion.div>
   );

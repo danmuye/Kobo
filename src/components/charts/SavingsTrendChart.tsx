@@ -1,7 +1,7 @@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
-import type { MonthlySavingsEntry } from "@/store/finance";
+import type { MonthlyGoalSavings as MonthlySavingsEntry } from "@/store/finance";
 
 interface SavingsTrendChartProps {
   data: MonthlySavingsEntry[];

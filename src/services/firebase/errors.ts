@@ -39,6 +39,7 @@ function isFirebaseError(err: unknown): err is { code: string; message: string }
 }
 
 const FIREBASE_CODE_MAP: Record<string, FirebaseErrorCode> = {
+  // Auth error codes (prefixed with auth/)
   "auth/user-not-found": "not-found",
   "auth/wrong-password": "invalid-argument",
   "auth/email-already-in-use": "already-exists",
@@ -54,6 +55,19 @@ const FIREBASE_CODE_MAP: Record<string, FirebaseErrorCode> = {
   "auth/expired-action-code": "invalid-argument",
   "auth/credential-already-in-use": "already-exists",
   "auth/email-already-exists": "already-exists",
+  // Firestore error codes (unprefixed in Firebase SDK v9+)
+  "permission-denied": "permission-denied",
+  "not-found": "not-found",
+  "already-exists": "already-exists",
+  "resource-exhausted": "resource-exhausted",
+  "cancelled": "cancelled",
+  "deadline-exceeded": "deadline-exceeded",
+  "unavailable": "unavailable",
+  "aborted": "internal",
+  "out-of-range": "invalid-argument",
+  "data-loss": "internal",
+  "unauthenticated": "unauthenticated",
+  // Legacy prefixed Firestore codes (some SDK versions)
   "firestore/permission-denied": "permission-denied",
   "firestore/not-found": "not-found",
   "firestore/already-exists": "already-exists",
@@ -62,6 +76,7 @@ const FIREBASE_CODE_MAP: Record<string, FirebaseErrorCode> = {
   "firestore/deadline-exceeded": "deadline-exceeded",
   "firestore/unavailable": "unavailable",
   "firestore/aborted": "internal",
+  // Storage error codes (prefixed with storage/)
   "storage/object-not-found": "not-found",
   "storage/unauthorized": "permission-denied",
   "storage/retry-limit-exceeded": "rate-limited",
@@ -105,5 +120,22 @@ export function toFirebaseServiceError(err: unknown): FirebaseServiceError {
   if (err instanceof FirebaseServiceError) return err;
   const code = classifyFirebaseError(err);
   const message = describeFirebaseError(code);
+
+  if (import.meta.env.DEV) {
+    console.group(`[FirebaseServiceError] ${code}`);
+    if (err instanceof Error) {
+      console.error("Original error:", err);
+      console.log("Original name:", err.name);
+      console.log("Original message:", err.message);
+      if ("code" in err) console.log("Original code:", (err as { code: unknown }).code);
+      if (err.stack) console.log("Original stack:", err.stack);
+    } else {
+      console.error("Original error (non-Error):", err);
+    }
+    console.log("Mapped code:", code);
+    console.log("User message:", message);
+    console.groupEnd();
+  }
+
   return new FirebaseServiceError(code, message, err);
 }

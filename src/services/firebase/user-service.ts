@@ -1,5 +1,10 @@
 import { getFirestoreDb, isConfigured, initializeFirebase, whenReady } from "./config";
-import { transactionCategories } from "@/data/finance";
+import { sanitizeFirestoreData } from "./sanitize";
+
+const transactionCategories = [
+  "Food & Dining", "Transportation", "Rent", "Utilities", "Entertainment",
+  "Shopping", "Healthcare", "Education", "Salary", "Freelance", "Investment", "Family Support",
+];
 
 export async function userDocumentExists(uid: string): Promise<boolean> {
   if (!isConfigured()) return false;
@@ -75,10 +80,10 @@ export async function createUserDocuments(
   };
 
   await Promise.all([
-    fs.setDoc(userRef, userData),
-    fs.setDoc(profileRef, profileData),
-    fs.setDoc(settingsRef, settingsData),
-    fs.setDoc(categoriesRef, categoriesData),
+    fs.setDoc(userRef, sanitizeFirestoreData(userData)),
+    fs.setDoc(profileRef, sanitizeFirestoreData(profileData)),
+    fs.setDoc(settingsRef, sanitizeFirestoreData(settingsData)),
+    fs.setDoc(categoriesRef, sanitizeFirestoreData(categoriesData)),
   ]);
 }
 
@@ -98,8 +103,8 @@ export async function updateUserProfileDocument(
   const profileRef = fs.doc(db, "users", uid, "profile", "default");
 
   await Promise.all([
-    fs.updateDoc(userRef, { ...data, updatedAt: now }),
-    fs.updateDoc(profileRef, { ...data, updatedAt: now }),
+    fs.updateDoc(userRef, sanitizeFirestoreData({ ...data, updatedAt: now })),
+    fs.updateDoc(profileRef, sanitizeFirestoreData({ ...data, updatedAt: now })),
   ]);
 }
 

@@ -13,27 +13,51 @@ export interface Transaction {
   receiptUrl?: string | null;
   fromAccount?: string;
   toAccount?: string;
+  tags?: string[];
+  merchant?: string;
+  budgetId?: string | null;
 }
-
-export type BudgetStatus = "on-track" | "near-limit" | "exceeded";
 
 export interface Budget {
   id: string;
   name: string;
-  category: string;
-  icon: string; // icon key
   amount: number;
-  spent: number;
-  period: "monthly" | "weekly" | "yearly";
+  period: "Monthly" | "Weekly" | "Yearly" | "Custom";
+  startDate?: string;
+  endDate?: string;
+  categories: string[];
+  accounts?: string[];
+  wallets?: string[];
+  tags?: string[];
+  color: string;
+  icon: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface SavingsGoal {
+export type FundingType = "Income" | "Savings Transfer" | "Manual Deposit" | "Mixed";
+export type GoalPriority = "low" | "medium" | "high";
+
+export interface Goal {
   id: string;
   name: string;
-  target: number;
-  saved: number;
-  deadline: string;
+  targetAmount: number;
+  targetDate: string;
+  startDate: string;
+  fundingType: FundingType;
+  categories: string[];
+  accounts: string[];
+  wallets: string[];
+  tags: string[];
+  color: string;
   icon: string;
+  priority: GoalPriority;
+  notes: string;
+  autoTrack: boolean;
+  includeTransfers: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Debt {
@@ -60,4 +84,6 @@ export interface Account {
   icon: string;
   openingBalance: number;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -28,10 +28,12 @@ import { AccountBalancesChart } from "@/components/charts/AccountBalancesChart";
 import { SavingsTrendChart } from "@/components/charts/SavingsTrendChart";
 import { CompletionForecastChart } from "@/components/charts/CompletionForecastChart";
 import {
-  getCompletionForecast, getAverageMonthlySavings, getContributionFrequency,
-  getOverallCompletionTimeline, getGoalProgress,
+  getGoalCompletionForecast, getGoalOverallTimeline,
+  calculateGoalMetrics, calculateDebtMetrics,
   useFinanceStore,
 } from "@/store/finance";
+import { calculateBudgetMetrics } from "@/services/budget-matching";
+import { computeAccountBalance } from "@/services/account-balance";
 import type { DateRangePreset } from "@/services/reports";
 import type { ExportFormat } from "@/services/export";
 const RANGE_OPTIONS: { label: string; value: DateRangePreset }[] = [
@@ -181,8 +183,8 @@ export default function Reports() {
     comparison, comparisonMode, toggleComparison,
     exportReport,
   } = useReportsPage();
+  const transactions = useFinanceStore((s) => s.transactions);
   const goals = useFinanceStore((s) => s.goals);
-  const goalContributions = useFinanceStore((s) => s.goalContributions);
   const budgets = useFinanceStore((s) => s.budgets);
   const debts = useFinanceStore((s) => s.debts);
   const accounts = useFinanceStore((s) => s.accounts);
@@ -191,40 +193,44 @@ export default function Reports() {
   useEffect(() => { setMounted(true); }, []);
 
   const analytics = useMemo(() => ({
-    averageMonthly: getAverageMonthlySavings(goalContributions),
-    frequency: getContributionFrequency(goalContributions),
-    completionForecast: getCompletionForecast(goals, goalContributions),
-    overallTimeline: getOverallCompletionTimeline(goals, goalContributions),
-  }), [goalContributions, goals]);
+    completionForecast: getGoalCompletionForecast(goals, transactions),
+    overallTimeline: getGoalOverallTimeline(goals, transactions),
+  }), [goals, transactions]);
 
-  const goalsWithProgress = useMemo(
-    () => goals.map((g) => ({ ...g, progress: getGoalProgress(g, goalContributions) })),
-    [goals, goalContributions],
+  const goalsWithMetrics = useMemo(
+    () => goals.map((g) => ({ ...g, metrics: calculateGoalMetrics(g, transactions) })),
+    [goals, transactions],
   );
 
   const budgetChartData = useMemo(() =>
-    budgets.map((b) => ({
-      name: b.name.length > 14 ? b.name.slice(0, 14) + "\u2026" : b.name,
-      spent: b.spent,
-      budget: b.amount,
-      pct: b.amount > 0 ? (b.spent / b.amount) * 100 : 0,
-    })),
-    [budgets],
+    budgets.map((b) => {
+      const m = calculateBudgetMetrics(b, transactions);
+      return {
+        name: b.name.length > 14 ? b.name.slice(0, 14) + "\u2026" : b.name,
+        spent: m.spent,
+        budget: b.amount,
+        pct: m.percentage,
+      };
+    }),
+    [budgets, transactions],
   );
 
   const debtChartData = useMemo(() =>
-    debts.map((d) => ({
-      name: d.name,
-      balance: d.balance,
-      originalAmount: d.originalAmount,
-      paidPct: d.originalAmount > 0 ? ((d.originalAmount - d.balance) / d.originalAmount) * 100 : 0,
-    })),
-    [debts],
+    debts.map((d) => {
+      const m = calculateDebtMetrics(d, transactions);
+      return {
+        name: d.name,
+        balance: m.remainingBalance,
+        originalAmount: d.originalAmount,
+        paidPct: m.percentagePaid,
+      };
+    }),
+    [debts, transactions],
   );
 
   const accountChartData = useMemo(() =>
-    accounts.map((a) => ({ name: a.name, balance: a.balance, type: a.type })),
-    [accounts],
+    accounts.map((a) => ({ name: a.name, balance: computeAccountBalance(a, transactions), type: a.type })),
+    [accounts, transactions],
   );
 
   const hasActiveFilters = filters.categories.length > 0 || filters.accounts.length > 0 || filters.types.length > 0 || filters.budgetIds.length > 0;
@@ -629,27 +635,19 @@ export default function Reports() {
         className="grid gap-4 grid-cols-2 sm:grid-cols-4"
       >
         <div className="rounded-xl border bg-card p-4 shadow-elegant">
-          <p className="text-xs text-muted-foreground">Avg Monthly Savings</p>
-          <p className="font-display text-lg font-bold">{formatNaira(analytics.averageMonthly.averagePerMonth)}</p>
+          <p className="text-xs text-muted-foreground">Active Goals</p>
+          <p className="font-display text-lg font-bold">{goals.length}</p>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
-            <span>This month</span>
-            <span className="font-semibold text-foreground">{formatNaira(analytics.averageMonthly.currentMonth)}</span>
+            <span>With progress</span>
+            <span className="font-semibold text-foreground">{goalsWithMetrics.filter((g) => g.metrics.saved > 0).length}</span>
           </div>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-elegant">
-          <p className="text-xs text-muted-foreground">Contribution Frequency</p>
-          <p className="font-display text-lg font-bold">
-            {analytics.frequency.monthly.reduce((s, m) => s + m.count, 0) > 0
-              ? `${(analytics.frequency.monthly.reduce((s, m) => s + m.count, 0) / Math.max(analytics.frequency.monthly.filter(m => m.count > 0).length, 1)).toFixed(1)}/mo`
-              : "\u2014"}
-          </p>
+          <p className="text-xs text-muted-foreground">Avg Monthly Savings</p>
+          <p className="font-display text-lg font-bold">{formatNaira(analytics.overallTimeline.combinedMonthlyRate)}</p>
           <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
-            <span>Avg per week</span>
-            <span className="font-semibold text-foreground">
-              {analytics.frequency.weekly.reduce((s, w) => s + w.count, 0) > 0
-                ? (analytics.frequency.weekly.reduce((s, w) => s + w.count, 0) / Math.max(analytics.frequency.weekly.filter(w => w.count > 0).length, 1)).toFixed(1)
-                : "\u2014"}
-            </span>
+            <span>Monthly rate</span>
+            <span className="font-semibold text-foreground">{formatNaira(analytics.overallTimeline.combinedMonthlyRate)}</span>
           </div>
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-elegant">
@@ -764,43 +762,37 @@ export default function Reports() {
       )}
 
       {/* ── Savings Goals Progress ── */}
-      {goalsWithProgress.length > 0 && (
+      {goalsWithMetrics.length > 0 && (
         <section className="rounded-xl border bg-card p-5 shadow-elegant">
           <h3 className="font-display font-semibold mb-4">Savings Goals Progress</h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {goalsWithProgress.map((g) => {
-              const p = g.progress;
+            {goalsWithMetrics.map((g) => {
+              const m = g.metrics;
+              const status = m.isCompleted ? "Completed" : m.isExpired ? "Overdue" : "On Track";
+              const statusColor = m.isCompleted ? "bg-success/15 text-success" : m.isExpired ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success";
               return (
                 <div key={g.id} className="space-y-2 rounded-lg border border-border p-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium truncate">{g.name}</span>
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "shrink-0 text-[10px]",
-                        p.pct >= 100 ? "bg-success/15 text-success" : p.daysRemaining <= 0
-                          ? "bg-destructive/15 text-destructive" : p.onTrack
-                            ? "bg-success/15 text-success" : "bg-warning/15 text-warning",
-                      )}
-                    >
-                      {p.pct >= 100 ? "Completed" : p.daysRemaining <= 0 ? "Overdue" : p.onTrack ? "On Track" : "Behind"}
+                    <Badge variant="secondary" className={cn("shrink-0 text-[10px]", statusColor)}>
+                      {status}
                     </Badge>
                   </div>
                   <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${p.pct}%` }} />
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(m.percentage, 100)}%` }} />
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{formatNaira(p.saved)} / {formatNaira(p.target)}</span>
-                    <span className="font-medium text-foreground">{p.pct.toFixed(1)}%</span>
+                    <span>{formatNaira(m.saved)} / {formatNaira(g.targetAmount)}</span>
+                    <span className="font-medium text-foreground">{m.percentage.toFixed(1)}%</span>
                   </div>
                   <div className="flex items-center justify-between text-[11px] border-t border-border/50 pt-2">
                     <span className="text-muted-foreground">Monthly needed</span>
-                    <span className="font-medium">{formatNaira(p.monthlyNeeded)}/mo</span>
+                    <span className="font-medium">{formatNaira(m.requiredMonthlySaving)}/mo</span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-muted-foreground">Days left</span>
-                    <span className={cn("font-medium", p.daysRemaining <= 0 ? "text-destructive" : "")}>
-                      {p.daysRemaining <= 0 ? "Overdue" : `${p.daysRemaining}d`}
+                    <span className={cn("font-medium", m.daysRemaining <= 0 ? "text-destructive" : "")}>
+                      {m.daysRemaining <= 0 ? "Overdue" : `${m.daysRemaining}d`}
                     </span>
                   </div>
                 </div>
@@ -819,7 +811,8 @@ export default function Reports() {
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {budgets.map((b) => {
-              const pct = b.amount > 0 ? (b.spent / b.amount) * 100 : 0;
+              const m = calculateBudgetMetrics(b, transactions);
+              const pct = m.percentage;
               const status = pct > 100 ? "destructive" : pct >= 80 ? "warning" : "success";
               return (
                 <div key={b.id} className="space-y-1.5 rounded-lg border border-border p-3">
@@ -836,7 +829,7 @@ export default function Reports() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {formatNaira(b.spent)} / {formatNaira(b.amount)}
+                    {formatNaira(m.spent)} / {formatNaira(b.amount)}
                   </p>
                 </div>
               );

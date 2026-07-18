@@ -1,7 +1,7 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
-import type { CompletionForecast } from "@/store/finance";
+import type { GoalCompletionForecast as CompletionForecast } from "@/store/finance";
 
 interface CompletionForecastChartProps {
   data: CompletionForecast[];

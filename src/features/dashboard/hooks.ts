@@ -11,21 +11,18 @@ import {
   getMonthlyChart,
   getCategoryBreakdown,
   getCashFlow,
-  getTotalSaved,
-  getTotalTarget,
-  getTotalSavingsProgress,
-  getMonthlyGoalContributions,
   getAccountsHealth,
+  calculateGoalsTotal,
+  getMonthlyGoalSavings,
 } from "@/store/finance";
 
 export function useDashboardMetrics() {
   const transactions = useFinanceStore((s) => s.transactions);
   const accounts = useFinanceStore((s) => s.accounts);
   const goals = useFinanceStore((s) => s.goals);
-  const goalContributions = useFinanceStore((s) => s.goalContributions);
 
   return useMemo(() => {
-    const totalBalance = getCurrentBalance(accounts);
+    const totalBalance = getCurrentBalance(accounts, transactions);
     const availableBalance = getAvailableBalance(accounts, transactions);
     const totalIncome = getTotalIncome(transactions);
     const totalExpenses = getTotalExpenses(transactions);
@@ -35,10 +32,8 @@ export function useDashboardMetrics() {
     const monthlyChart = getMonthlyChart(transactions);
     const categoryData = getCategoryBreakdown(transactions);
     const cashFlow = getCashFlow(monthlyChart);
-    const totalSaved = getTotalSaved(goals);
-    const totalTarget = getTotalTarget(goals);
-    const savingsProgress = getTotalSavingsProgress(goals);
-    const monthlySavings = getMonthlyGoalContributions(goalContributions);
+    const savingsProgress = calculateGoalsTotal(goals, transactions);
+    const monthlySavings = getMonthlyGoalSavings(goals, transactions);
     const accountHealth = getAccountsHealth(accounts, transactions);
     return {
       totalBalance,
@@ -53,12 +48,12 @@ export function useDashboardMetrics() {
       monthlyChart,
       categoryData,
       cashFlow,
-      totalSaved,
-      totalTarget,
+      totalSaved: savingsProgress.totalSaved,
+      totalTarget: savingsProgress.totalTarget,
       savingsProgress,
       monthlySavings,
       accountHealth,
       recentTransactions: transactions,
     };
-  }, [accounts, transactions, goals, goalContributions]);
+  }, [accounts, transactions, goals]);
 }

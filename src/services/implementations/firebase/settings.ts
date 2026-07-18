@@ -3,11 +3,7 @@ import type { ISettingsService } from "@/services/interfaces";
 import { useSettingsStore } from "@/store/settings";
 import { createCollection, type FirestoreCollection } from "@/services/firebase/firestore";
 
-interface FirebaseSettingsDoc {
-  appearance: AppearanceSettings;
-  localization: LocalizationSettings;
-  updatedAt: string;
-}
+const CONFIG_DOC_ID = "config";
 
 export class FirebaseSettingsService implements ISettingsService {
   private colPromise: Promise<FirestoreCollection<FirebaseSettingsDoc>>;
@@ -27,35 +23,34 @@ export class FirebaseSettingsService implements ISettingsService {
     return useSettingsStore.getState().settings;
   }
 
-  updateAppearance(patch: Partial<AppearanceSettings>): void {
+  async updateAppearance(patch: Partial<AppearanceSettings>): Promise<void> {
     useSettingsStore.getState().updateAppearance(patch);
-    this.persist();
+    await this.persist();
   }
 
-  updateLocalization(patch: Partial<LocalizationSettings>): void {
+  async updateLocalization(patch: Partial<LocalizationSettings>): Promise<void> {
     useSettingsStore.getState().updateLocalization(patch);
-    this.persist();
+    await this.persist();
   }
 
-  resetAll(): void {
+  async resetAll(): Promise<void> {
     useSettingsStore.getState().resetAll();
-    this.persist();
+    await this.persist();
   }
 
-  restoreSettings(s: AppSettings): void {
+  async restoreSettings(s: AppSettings): Promise<void> {
     useSettingsStore.getState().restoreSettings(s);
-    this.persist();
+    await this.persist();
   }
 
-  clearAllData(): void {
+  async clearAllData(): Promise<void> {
     useSettingsStore.getState().clearAllData();
-    this.persist();
+    await this.persist();
   }
 
   async loadAsync(): Promise<AppSettings | null> {
     const col = await this.colPromise;
-    const docs = await col.getAll();
-    const doc = docs[0];
+    const doc = await col.getById(CONFIG_DOC_ID);
     if (!doc) return null;
     return { appearance: doc.appearance, localization: doc.localization };
   }
@@ -64,13 +59,23 @@ export class FirebaseSettingsService implements ISettingsService {
     try {
       const col = await this.colPromise;
       const { settings } = useSettingsStore.getState();
-      await col.create({
+      await col.set(CONFIG_DOC_ID, {
+        id: CONFIG_DOC_ID,
         appearance: settings.appearance,
         localization: settings.localization,
         updatedAt: new Date().toISOString(),
-      });
-    } catch {
-      // Firestore write failed — local state is already updated
+      } as FirebaseSettingsDoc);
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error("[SettingsService] persist failed — settings not saved to Firestore:", err);
+      }
     }
   }
+}
+
+interface FirebaseSettingsDoc {
+  id: string;
+  appearance: AppearanceSettings;
+  localization: LocalizationSettings;
+  updatedAt: string;
 }

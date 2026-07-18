@@ -18,7 +18,11 @@ export interface AppNotification {
 
 export type NotificationPreferenceKey =
   | "budgetAlerts"
+  | "budgetEndingAlerts"
+  | "budgetEndedAlerts"
+  | "budgetThresholdAlerts"
   | "savingsAlerts"
+  | "goalMilestoneAlerts"
   | "debtReminders"
   | "accountAlerts"
   | "monthlySummaries"
@@ -26,7 +30,11 @@ export type NotificationPreferenceKey =
 
 export interface NotificationPreferences {
   budgetAlerts: boolean;
+  budgetEndingAlerts: boolean;
+  budgetEndedAlerts: boolean;
+  budgetThresholdAlerts: boolean;
   savingsAlerts: boolean;
+  goalMilestoneAlerts: boolean;
   debtReminders: boolean;
   accountAlerts: boolean;
   monthlySummaries: boolean;
@@ -35,7 +43,11 @@ export interface NotificationPreferences {
 
 export const DEFAULT_PREFERENCES: NotificationPreferences = {
   budgetAlerts: true,
+  budgetEndingAlerts: true,
+  budgetEndedAlerts: true,
+  budgetThresholdAlerts: true,
   savingsAlerts: true,
+  goalMilestoneAlerts: true,
   debtReminders: true,
   accountAlerts: true,
   monthlySummaries: true,

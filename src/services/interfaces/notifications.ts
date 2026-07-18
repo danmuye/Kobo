@@ -4,14 +4,14 @@ import type {
 
 export interface INotificationService {
   list(): AppNotification[];
-  add(data: Omit<AppNotification, "id" | "timestamp" | "read">): string;
-  markAsRead(id: string): void;
-  markAllAsRead(): void;
-  remove(id: string): void;
-  clearAll(): void;
+  add(data: Omit<AppNotification, "id" | "timestamp" | "read">): Promise<string>;
+  markAsRead(id: string): Promise<void>;
+  markAllAsRead(): Promise<void>;
+  remove(id: string): Promise<void>;
+  clearAll(): Promise<void>;
   getUnreadCount(): number;
   getPreferences(): NotificationPreferences;
-  updatePreference(key: NotificationPreferenceKey, value: boolean): void;
-  clearAllData(): void;
-  restoreData(data: { notifications: AppNotification[]; preferences: NotificationPreferences }): void;
+  updatePreference(key: NotificationPreferenceKey, value: boolean): Promise<void>;
+  clearAllData(): Promise<void>;
+  restoreData(data: { notifications: AppNotification[]; preferences: NotificationPreferences }): Promise<void>;
 }

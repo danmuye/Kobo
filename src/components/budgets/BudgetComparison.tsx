@@ -1,19 +1,15 @@
 import { ArrowUp, ArrowDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatNaira, formatPercent } from "@/lib/format";
-import type { BudgetTrend } from "@/store/finance";
-import type { BudgetHistoryEntry } from "@/types";
+import type { BudgetTrend } from "@/services/budget-matching";
 
 interface BudgetComparisonProps {
-  /** Current percentage spent. */
   currentPct: number;
-  /** Previous period percentage spent. */
   previousPct: number;
-  /** Trend direction. */
   trend: BudgetTrend;
-  /** Previous period entry (for displaying period label and amounts). */
-  previousPeriod?: BudgetHistoryEntry;
-  /** If true, renders in a compact inline layout. Default false. */
+  previousSpent?: number;
+  previousAmount?: number;
+  previousPeriodKey?: string;
   compact?: boolean;
 }
 
@@ -38,17 +34,13 @@ const trendConfig = {
   },
 };
 
-/**
- * Displays a historical comparison for a budget:
- * - Trend icon (down=improvement, up=decline, minus=stable)
- * - Previous period percentage vs current
- * - Previous period spent/amount breakdown
- */
 export function BudgetComparison({
   currentPct,
   previousPct,
   trend,
-  previousPeriod,
+  previousSpent,
+  previousAmount,
+  previousPeriodKey,
   compact = false,
 }: BudgetComparisonProps) {
   const cfg = trendConfig[trend];
@@ -62,9 +54,9 @@ export function BudgetComparison({
           <Icon className="h-3 w-3" />
           {cfg.label}
         </span>
-        {previousPeriod && (
+        {previousSpent !== undefined && (
           <span className="text-muted-foreground">
-            ({formatNaira(previousPeriod.spent)})
+            ({formatNaira(previousSpent)})
           </span>
         )}
       </div>
@@ -83,24 +75,28 @@ export function BudgetComparison({
         </span>
       </div>
 
-      {previousPeriod && (
+      {previousPeriodKey && (
         <div className="mt-2 space-y-1">
           <div className="flex justify-between text-muted-foreground">
-            <span>Previous ({previousPeriod.periodKey})</span>
+            <span>Previous ({previousPeriodKey})</span>
             <span>{formatPercent(previousPct)} used</span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Spent</span>
-            <span>{formatNaira(previousPeriod.spent)}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Budget</span>
-            <span>{formatNaira(previousPeriod.amount)}</span>
-          </div>
+          {previousSpent !== undefined && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Spent</span>
+              <span>{formatNaira(previousSpent)}</span>
+            </div>
+          )}
+          {previousAmount !== undefined && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Budget</span>
+              <span>{formatNaira(previousAmount)}</span>
+            </div>
+          )}
         </div>
       )}
 
-      {!previousPeriod && (
+      {!previousPeriodKey && (
         <p className="mt-1 text-muted-foreground">No previous period data</p>
       )}
     </div>

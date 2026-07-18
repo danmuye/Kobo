@@ -1,4 +1,5 @@
-import type { Account, Budget, Debt, SavingsGoal, Transaction } from "@/types";
+import type { Account, Budget, Debt, Goal, Transaction } from "@/types";
+import { getBudgetCategories } from "@/services/budget-matching";
 
 export type SearchKind = "transaction" | "budget" | "account" | "goal" | "debt";
 
@@ -15,7 +16,7 @@ interface FinanceSearchData {
   transactions: Transaction[];
   budgets: Budget[];
   accounts: Account[];
-  goals: SavingsGoal[];
+  goals: Goal[];
   debts: Debt[];
 }
 
@@ -65,13 +66,14 @@ export function searchFinanceData(data: FinanceSearchData, query: string) {
   });
 
   data.budgets.forEach((budget) => {
-    const haystack = [budget.name, budget.category, budget.period].join(" ");
+    const cats = getBudgetCategories(budget);
+    const haystack = [budget.name, ...cats, budget.period].join(" ");
     if (!matchText(haystack, normalizedQuery)) return;
     results.push({
       kind: "budget",
       id: budget.id,
       title: budget.name,
-      subtitle: `${budget.category} • ${budget.period}`,
+      subtitle: `${cats[0] || "Uncategorized"} • ${budget.period}`,
       href: "/budgets",
       matchedText: budget.name,
     });
@@ -91,13 +93,13 @@ export function searchFinanceData(data: FinanceSearchData, query: string) {
   });
 
   data.goals.forEach((goal) => {
-    const haystack = [goal.name, goal.deadline, goal.icon].join(" ");
+    const haystack = [goal.name, goal.targetDate, goal.icon].join(" ");
     if (!matchText(haystack, normalizedQuery)) return;
     results.push({
       kind: "goal",
       id: goal.id,
       title: goal.name,
-      subtitle: `Deadline ${goal.deadline}`,
+      subtitle: `Target ${goal.targetDate}`,
       href: "/goals",
       matchedText: goal.name,
     });

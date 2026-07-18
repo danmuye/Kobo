@@ -1,4 +1,5 @@
-import type { Transaction, Budget, SavingsGoal, GoalContributionEntry, GoalMilestone, Debt, Account } from "@/types";
+import type { Transaction, Budget, Goal, Debt, Account } from "@/types";
+import type { GoalHistoryEntry } from "@/services/goal-insights";
 import type { AppNotification, NotificationPreferences } from "@/types/notifications";
 import type { AppSettings } from "@/store/settings";
 
@@ -8,9 +9,8 @@ interface BackupData {
   finance: {
     transactions: Transaction[];
     budgets: Budget[];
-    goals: SavingsGoal[];
-    goalContributions: GoalContributionEntry[];
-    goalMilestones: GoalMilestone[];
+    goals: Goal[];
+    goalHistory: GoalHistoryEntry[];
     debts: Debt[];
     accounts: Account[];
   };

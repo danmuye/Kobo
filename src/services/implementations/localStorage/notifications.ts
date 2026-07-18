@@ -39,19 +39,19 @@ export class LocalNotificationService implements INotificationService {
   list(): AppNotification[] {
     return useNotificationStore.getState().notifications;
   }
-  add(data: Omit<AppNotification, "id" | "timestamp" | "read">): string {
+  async add(data: Omit<AppNotification, "id" | "timestamp" | "read">): Promise<string> {
     return useNotificationStore.getState().addNotification(data);
   }
-  markAsRead(id: string): void {
+  async markAsRead(id: string): Promise<void> {
     useNotificationStore.getState().markAsRead(id);
   }
-  markAllAsRead(): void {
+  async markAllAsRead(): Promise<void> {
     useNotificationStore.getState().markAllAsRead();
   }
-  remove(id: string): void {
+  async remove(id: string): Promise<void> {
     useNotificationStore.getState().removeNotification(id);
   }
-  clearAll(): void {
+  async clearAll(): Promise<void> {
     useNotificationStore.getState().clearAll();
   }
   getUnreadCount(): number {
@@ -60,13 +60,13 @@ export class LocalNotificationService implements INotificationService {
   getPreferences(): NotificationPreferences {
     return useNotificationStore.getState().preferences;
   }
-  updatePreference(key: NotificationPreferenceKey, value: boolean): void {
+  async updatePreference(key: NotificationPreferenceKey, value: boolean): Promise<void> {
     useNotificationStore.getState().updatePreference(key, value);
   }
-  clearAllData(): void {
+  async clearAllData(): Promise<void> {
     useNotificationStore.getState().clearAllData();
   }
-  restoreData(data: { notifications: AppNotification[]; preferences: NotificationPreferences }): void {
+  async restoreData(data: { notifications: AppNotification[]; preferences: NotificationPreferences }): Promise<void> {
     useNotificationStore.getState().restoreData(data);
   }
 }

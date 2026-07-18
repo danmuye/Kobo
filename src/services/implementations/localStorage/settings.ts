@@ -39,19 +39,19 @@ export class LocalSettingsService implements ISettingsService {
   get(): AppSettings {
     return useSettingsStore.getState().settings;
   }
-  updateAppearance(patch: Partial<AppearanceSettings>): void {
+  async updateAppearance(patch: Partial<AppearanceSettings>): Promise<void> {
     useSettingsStore.getState().updateAppearance(patch);
   }
-  updateLocalization(patch: Partial<LocalizationSettings>): void {
+  async updateLocalization(patch: Partial<LocalizationSettings>): Promise<void> {
     useSettingsStore.getState().updateLocalization(patch);
   }
-  resetAll(): void {
+  async resetAll(): Promise<void> {
     useSettingsStore.getState().resetAll();
   }
-  restoreSettings(s: AppSettings): void {
+  async restoreSettings(s: AppSettings): Promise<void> {
     useSettingsStore.getState().restoreSettings(s);
   }
-  clearAllData(): void {
+  async clearAllData(): Promise<void> {
     useSettingsStore.getState().clearAllData();
   }
 }

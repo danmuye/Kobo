@@ -22,7 +22,6 @@ export function useReportsPage() {
   const transactions = useFinanceStore((s) => s.transactions);
   const budgets = useFinanceStore((s) => s.budgets);
   const goals = useFinanceStore((s) => s.goals);
-  const goalContributions = useFinanceStore((s) => s.goalContributions);
   const debts = useFinanceStore((s) => s.debts);
   const accounts = useFinanceStore((s) => s.accounts);
 
@@ -93,11 +92,6 @@ export function useReportsPage() {
     [dateFilteredTransactions, filters.categories, filters.accounts, filters.types],
   );
 
-  const filteredContributions = useMemo(
-    () => filterByDateRange(goalContributions, range),
-    [goalContributions, range],
-  );
-
   // ── Filtered budgets ──
   const filteredBudgets = useMemo(
     () => filters.budgetIds.length > 0
@@ -113,13 +107,12 @@ export function useReportsPage() {
         transactions: filteredTransactions,
         budgets: filteredBudgets,
         goals,
-        goalContributions: filteredContributions,
         debts,
         accounts,
       },
       range,
     ),
-    [filteredTransactions, filteredBudgets, goals, filteredContributions, debts, accounts, range],
+    [filteredTransactions, filteredBudgets, goals, debts, accounts, range],
   );
 
   // ── Financial Insights ──
@@ -128,11 +121,10 @@ export function useReportsPage() {
       filteredTransactions,
       filteredBudgets,
       goals,
-      filteredContributions,
       debts,
       range,
     ),
-    [filteredTransactions, filteredBudgets, goals, filteredContributions, debts, range],
+    [filteredTransactions, filteredBudgets, goals, debts, range],
   );
 
   // ── Comparison ──

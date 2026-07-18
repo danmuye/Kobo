@@ -38,6 +38,8 @@ export type { FirebaseErrorCode } from "./errors";
 export { withRetry } from "./retry";
 export type { RetryOptions } from "./retry";
 
+export { sanitizeFirestoreData } from "./sanitize";
+
 export {
   getFirebaseStatus,
   updateFirebaseStatus,

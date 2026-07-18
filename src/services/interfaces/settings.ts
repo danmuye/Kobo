@@ -3,9 +3,9 @@ import type { AppearanceSettings, LocalizationSettings } from "@/store/settings"
 
 export interface ISettingsService {
   get(): AppSettings;
-  updateAppearance(patch: Partial<AppearanceSettings>): void;
-  updateLocalization(patch: Partial<LocalizationSettings>): void;
-  resetAll(): void;
-  restoreSettings(s: AppSettings): void;
-  clearAllData(): void;
+  updateAppearance(patch: Partial<AppearanceSettings>): Promise<void>;
+  updateLocalization(patch: Partial<LocalizationSettings>): Promise<void>;
+  resetAll(): Promise<void>;
+  restoreSettings(s: AppSettings): Promise<void>;
+  clearAllData(): Promise<void>;
 }

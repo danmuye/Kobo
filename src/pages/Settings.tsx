@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { Sun, Moon, Monitor, Download, Upload, RotateCcw, Trash2, AlertTriangle, FileWarning, User, KeyRound, Mail, ShieldAlert, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Sun, Moon, Monitor, Download, Upload, RotateCcw, Trash2, AlertTriangle, FileWarning, User, KeyRound, Mail, ShieldAlert, LogOut, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,9 +22,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { notify } from "@/services/notifications";
-import { getFinanceService, getSettingsService, getNotificationService } from "@/services/service-provider";
 import { useFinanceStore } from "@/store/finance";
 import { useNotificationStore } from "@/store/notifications";
+import { useSettingsStore } from "@/store/settings";
 import { useTheme } from "@/components/theme-provider";
 import { useSettings } from "@/features/settings/hooks";
 import { useAuthContext } from "@/contexts/auth-context";
@@ -74,7 +75,7 @@ const timeFormatOptions: { value: TimeFormatStyle; label: string; example: strin
 
 export default function Settings() {
   const { user } = useAuthContext();
-  const { updateProfile, changePassword, changeEmail, deleteAccount, isLoading } = useAuth();
+  const { updateProfile, changePassword, changeEmail, deleteAccount, signOut, isLoading } = useAuth();
   const { theme, setTheme } = useTheme();
   const { settings, updateLocalization } = useSettings();
   const preferences = useNotificationStore((s) => s.preferences);
@@ -86,18 +87,15 @@ export default function Settings() {
 
   const handleExport = useCallback(() => {
     try {
-      const fsvc = getFinanceService();
-      const nsvc = getNotificationService();
-      const ssvc = getSettingsService();
       const state = useFinanceStore.getState();
       const notifState = useNotificationStore.getState();
+      const sett = useSettingsStore.getState().settings;
       const data = exportBackupData(
         {
           transactions: state.transactions,
           budgets: state.budgets,
           goals: state.goals,
-          goalContributions: state.goalContributions,
-          goalMilestones: state.goalMilestones,
+          goalHistory: state.goalHistory,
           debts: state.debts,
           accounts: state.accounts,
         },
@@ -105,7 +103,7 @@ export default function Settings() {
           notifications: notifState.notifications,
           preferences: notifState.preferences,
         },
-        ssvc.get(),
+        sett,
       );
       downloadBackup(data);
       notify.success("Backup exported", "Your data has been downloaded successfully.", "export");
@@ -123,26 +121,21 @@ export default function Settings() {
       const data = await readBackupFile(file);
       const state = useFinanceStore.getState();
       const notifState = useNotificationStore.getState();
-      const fsvc = getFinanceService();
-      const nsvc = getNotificationService();
-      const ssvc = getSettingsService();
 
-      fsvc.restoreData({
+      useFinanceStore.getState().restoreData({
         transactions: deduplicateById(state.transactions, data.finance.transactions),
         budgets: deduplicateById(state.budgets, data.finance.budgets),
         goals: deduplicateById(state.goals, data.finance.goals),
-        goalContributions: deduplicateById(state.goalContributions, data.finance.goalContributions),
-        goalMilestones: deduplicateById(state.goalMilestones, data.finance.goalMilestones),
         debts: deduplicateById(state.debts, data.finance.debts),
         accounts: deduplicateById(state.accounts, data.finance.accounts),
       });
 
-      nsvc.restoreData({
+      useNotificationStore.getState().restoreData({
         notifications: deduplicateById(notifState.notifications, data.notifications.notifications),
         preferences: data.notifications.preferences,
       });
 
-      ssvc.restoreSettings(data.settings);
+      useSettingsStore.getState().restoreSettings(data.settings);
 
       notify.success("Backup restored", `Imported ${data.finance.transactions.length} transactions and more.`, "export");
     } catch (err) {
@@ -153,20 +146,15 @@ export default function Settings() {
     }
   }, []);
 
-  const handleResetDemoData = useCallback(() => {
-    getFinanceService().resetDemoData();
-    notify.success("Demo data restored", "The original demo data has been reloaded.", "system");
-  }, []);
-
   const handleClearApplicationData = useCallback(() => {
-    getFinanceService().clearAllData();
-    getNotificationService().clearAllData();
-    getSettingsService().clearAllData();
+    useFinanceStore.getState().clearAllData();
+    useNotificationStore.getState().clearAllData();
+    useSettingsStore.getState().clearAllData();
     notify.success("Data cleared", "All application data has been removed.", "system");
   }, []);
 
   const handleResetSettings = useCallback(() => {
-    getSettingsService().resetAll();
+    useSettingsStore.getState().resetAll();
     notify.success("Settings reset", "All settings have been restored to defaults.", "system");
   }, []);
 
@@ -249,6 +237,28 @@ export default function Settings() {
       setDeleteSaving(false);
     }
   }, [deletePassword, deleteAccount]);
+
+  const navigate = useNavigate();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const signingOutRef = useRef(false);
+
+  const handleSignOut = useCallback(async () => {
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      useFinanceStore.getState().clearAllData();
+      useNotificationStore.getState().clearAllData();
+      notify.success("Signed out", "You have been signed out successfully.", "system");
+      navigate("/login", { replace: true });
+    } catch (err) {
+      notify.error("Sign out failed", err instanceof Error ? err.message : "Could not sign out. Please try again.", "system");
+    } finally {
+      signingOutRef.current = false;
+      setIsSigningOut(false);
+    }
+  }, [signOut, navigate]);
 
   return (
     <div className="space-y-6">
@@ -493,6 +503,46 @@ export default function Settings() {
           </AlertDialog>
         </section>
 
+        {/* ── Sign Out ── */}
+        <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-signout">
+          <h3 id="settings-signout" className="font-display font-semibold flex items-center gap-2">
+            <LogOut className="h-4 w-4" aria-hidden />
+            Sign Out
+          </h3>
+          <p className="text-xs text-muted-foreground -mt-2">
+            End your current session and return to the login screen.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" aria-label="Sign out of your account">
+                <LogOut className="h-4 w-4 mr-2" aria-hidden />
+                Sign Out
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Sign Out</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to sign out?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                >
+                  {isSigningOut ? (
+                    <><Loader2 className="mr-2 h-3 w-3 animate-spin" /> Signing Out…</>
+                  ) : (
+                    "Sign Out"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </section>
+
         {/* ── Localization ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4 md:col-span-2" aria-labelledby="settings-localization">
           <h3 id="settings-localization" className="font-display font-semibold">Localization</h3>
@@ -635,36 +685,9 @@ export default function Settings() {
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4 md:col-span-2" aria-labelledby="settings-data">
           <h3 id="settings-data" className="font-display font-semibold">Data Management</h3>
           <p className="text-sm text-muted-foreground">
-            Your data is stored locally in your browser. Use these tools to manage it.
+            Manage your application data. These actions cannot be undone.
           </p>
           <div className="flex flex-wrap gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label="Reset to demo data">
-                  <RotateCcw className="h-4 w-4 mr-2" aria-hidden />
-                  Reset demo data
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-warning" aria-hidden />
-                    Reset demo data?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will replace all your current data with the original demo data.
-                    Any changes you have made will be lost. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetDemoData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Reset demo data
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" aria-label="Reset all settings">

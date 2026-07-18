@@ -1,10 +1,10 @@
 import type {
-  Transaction, Budget, SavingsGoal, GoalContributionEntry,
-  GoalMilestone, Debt, Account,
+  Transaction, Budget, BudgetHistoryEntry, Goal, Debt, Account,
 } from "@/types";
+import type { GoalHistoryEntry } from "@/services/goal-insights";
 import type {
   IFinanceService, ITransactionService, IBudgetService,
-  IGoalService, IGoalContributionService, IDebtService, IAccountService,
+  IGoalService, IDebtService, IAccountService,
 } from "@/services/interfaces";
 import { useFinanceStore } from "@/store/finance";
 
@@ -15,18 +15,17 @@ function persistFinanceState(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     transactions: state.transactions ?? [],
     budgets: state.budgets ?? [],
+    budgetHistory: state.budgetHistory ?? [],
     goals: state.goals ?? [],
-    goalContributions: state.goalContributions ?? [],
-    goalMilestones: state.goalMilestones ?? [],
+    goalHistory: state.goalHistory ?? [],
     debts: state.debts ?? [],
     accounts: state.accounts ?? [],
   }));
 }
 
 function loadFinanceState(): {
-  transactions: Transaction[]; budgets: Budget[]; goals: SavingsGoal[];
-  goalContributions: GoalContributionEntry[]; goalMilestones: GoalMilestone[];
-  debts: Debt[]; accounts: Account[];
+  transactions: Transaction[]; budgets: Budget[]; budgetHistory: BudgetHistoryEntry[]; goals: Goal[];
+  goalHistory: GoalHistoryEntry[]; debts: Debt[]; accounts: Account[];
 } | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -41,9 +40,9 @@ function loadFinanceState(): {
   return {
     transactions: Array.isArray(data.transactions) ? (data.transactions as Transaction[]) : [],
     budgets: Array.isArray(data.budgets) ? (data.budgets as Budget[]) : [],
-    goals: Array.isArray(data.goals) ? (data.goals as SavingsGoal[]) : [],
-    goalContributions: Array.isArray(data.goalContributions) ? (data.goalContributions as GoalContributionEntry[]) : [],
-    goalMilestones: Array.isArray(data.goalMilestones) ? (data.goalMilestones as GoalMilestone[]) : [],
+    budgetHistory: Array.isArray(data.budgetHistory) ? (data.budgetHistory as BudgetHistoryEntry[]) : [],
+    goals: Array.isArray(data.goals) ? (data.goals as Goal[]) : [],
+    goalHistory: Array.isArray(data.goalHistory) ? (data.goalHistory as GoalHistoryEntry[]) : [],
     debts: Array.isArray(data.debts) ? (data.debts as Debt[]) : [],
     accounts: Array.isArray(data.accounts) ? (data.accounts as Account[]) : [],
   };
@@ -58,16 +57,16 @@ class LocalTransactionService implements ITransactionService {
   getById(id: string): Transaction | undefined {
     return useFinanceStore.getState().transactions.find((t) => t.id === id);
   }
-  create(data: Omit<Transaction, "id">): Transaction {
+  async create(data: Omit<Transaction, "id">): Promise<Transaction> {
     const tx: Transaction = { ...data, id: id() };
-    useFinanceStore.getState().addTransaction(data);
+    useFinanceStore.getState().addTransaction(tx);
     return tx;
   }
-  update(id: string, data: Partial<Transaction>): Transaction | undefined {
+  async update(id: string, data: Partial<Transaction>): Promise<Transaction | undefined> {
     useFinanceStore.getState().updateTransaction(id, data);
     return this.getById(id);
   }
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     useFinanceStore.getState().deleteTransaction(id);
   }
 }
@@ -79,57 +78,38 @@ class LocalBudgetService implements IBudgetService {
   getById(id: string): Budget | undefined {
     return useFinanceStore.getState().budgets.find((b) => b.id === id);
   }
-  create(data: Omit<Budget, "id">): Budget {
+  async create(data: Omit<Budget, "id">): Promise<Budget> {
     const budget: Budget = { ...data, id: id() };
-    useFinanceStore.getState().addBudget(data);
+    useFinanceStore.getState().addBudget(budget);
     return budget;
   }
-  update(id: string, data: Partial<Budget>): Budget | undefined {
+  async update(id: string, data: Partial<Budget>): Promise<Budget | undefined> {
     useFinanceStore.getState().updateBudget(id, data);
     return this.getById(id);
   }
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     useFinanceStore.getState().deleteBudget(id);
-  }
-  archive(id: string): void {
-    useFinanceStore.getState().archiveBudget(id);
   }
 }
 
 class LocalGoalService implements IGoalService {
-  list(): SavingsGoal[] {
+  list(): Goal[] {
     return useFinanceStore.getState().goals;
   }
-  getById(id: string): SavingsGoal | undefined {
+  getById(id: string): Goal | undefined {
     return useFinanceStore.getState().goals.find((g) => g.id === id);
   }
-  create(data: Omit<SavingsGoal, "id">): SavingsGoal {
-    useFinanceStore.getState().addGoal(data);
-    return this.list()[this.list().length - 1];
+  async create(data: Omit<Goal, "id">): Promise<Goal> {
+    const goal: Goal = { ...data, id: id() };
+    useFinanceStore.getState().addGoal(goal);
+    return goal;
   }
-  update(id: string, data: Partial<SavingsGoal>): SavingsGoal | undefined {
+  async update(id: string, data: Partial<Goal>): Promise<Goal | undefined> {
     useFinanceStore.getState().updateGoal(id, data);
     return this.getById(id);
   }
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     useFinanceStore.getState().deleteGoal(id);
-  }
-}
-
-class LocalGoalContributionService implements IGoalContributionService {
-  list(): GoalContributionEntry[] {
-    return useFinanceStore.getState().goalContributions;
-  }
-  create(data: Omit<GoalContributionEntry, "id">): GoalContributionEntry {
-    useFinanceStore.getState().addGoalContribution(data);
-    return this.list()[this.list().length - 1];
-  }
-  update(id: string, data: Partial<GoalContributionEntry>): GoalContributionEntry | undefined {
-    useFinanceStore.getState().updateGoalContribution(id, data);
-    return this.list().find((c) => c.id === id);
-  }
-  delete(id: string): void {
-    useFinanceStore.getState().deleteGoalContribution(id);
   }
 }
 
@@ -140,16 +120,16 @@ class LocalDebtService implements IDebtService {
   getById(id: string): Debt | undefined {
     return useFinanceStore.getState().debts.find((d) => d.id === id);
   }
-  create(data: Omit<Debt, "id">): Debt {
+  async create(data: Omit<Debt, "id">): Promise<Debt> {
     const debt: Debt = { ...data, id: id() };
-    useFinanceStore.getState().addDebt(data);
+    useFinanceStore.getState().addDebt(debt);
     return debt;
   }
-  update(id: string, data: Partial<Debt>): Debt | undefined {
+  async update(id: string, data: Partial<Debt>): Promise<Debt | undefined> {
     useFinanceStore.getState().updateDebt(id, data);
     return this.getById(id);
   }
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     useFinanceStore.getState().deleteDebt(id);
   }
 }
@@ -161,16 +141,16 @@ class LocalAccountService implements IAccountService {
   getById(id: string): Account | undefined {
     return useFinanceStore.getState().accounts.find((a) => a.id === id);
   }
-  create(data: Omit<Account, "id">): Account {
+  async create(data: Omit<Account, "id">): Promise<Account> {
     const account: Account = { ...data, id: id() };
-    useFinanceStore.getState().addAccount(data);
+    useFinanceStore.getState().addAccount(account);
     return account;
   }
-  update(id: string, data: Partial<Account>): Account | undefined {
+  async update(id: string, data: Partial<Account>): Promise<Account | undefined> {
     useFinanceStore.getState().updateAccount(id, data);
     return this.getById(id);
   }
-  delete(id: string): void {
+  async delete(id: string): Promise<void> {
     useFinanceStore.getState().deleteAccount(id);
   }
 }
@@ -181,7 +161,6 @@ export class LocalFinanceService implements IFinanceService {
   transactions = new LocalTransactionService();
   budgets = new LocalBudgetService();
   goals = new LocalGoalService();
-  goalContributions = new LocalGoalContributionService();
   debts = new LocalDebtService();
   accounts = new LocalAccountService();
 
@@ -199,17 +178,13 @@ export class LocalFinanceService implements IFinanceService {
     this.unsub?.();
   }
 
-  resetDemoData(): void {
-    useFinanceStore.getState().resetDemoData();
-  }
-  clearAllData(): void {
+  async clearAllData(): Promise<void> {
     useFinanceStore.getState().clearAllData();
   }
-  restoreData(data: {
-    transactions: Transaction[]; budgets: Budget[]; goals: SavingsGoal[];
-    goalContributions: GoalContributionEntry[]; goalMilestones: GoalMilestone[];
-    debts: Debt[]; accounts: Account[];
-  }): void {
+  async restoreData(data: {
+    transactions: Transaction[]; budgets: Budget[]; budgetHistory?: BudgetHistoryEntry[]; goals: Goal[];
+    goalHistory?: GoalHistoryEntry[]; debts: Debt[]; accounts: Account[];
+  }): Promise<void> {
     useFinanceStore.getState().restoreData(data);
   }
 }

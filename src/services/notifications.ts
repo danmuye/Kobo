@@ -16,28 +16,30 @@ interface NotifyOptions {
 }
 
 interface NotifyFn {
-  (title: string, message: string, type?: NotificationType, category?: NotificationCategory, options?: NotifyOptions): string;
-  success: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => string;
-  error: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => string;
-  warning: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => string;
-  info: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => string;
+  (title: string, message: string, type?: NotificationType, category?: NotificationCategory, options?: NotifyOptions): Promise<string>;
+  success: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => Promise<string>;
+  error: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => Promise<string>;
+  warning: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => Promise<string>;
+  info: (title: string, message: string, category?: NotificationCategory, options?: NotifyOptions) => Promise<string>;
 }
 
-const _notify = (
+const _notify = async (
   title: string,
   message: string,
   type: NotificationType = "info",
   category: NotificationCategory = "system",
   options?: NotifyOptions,
-): string => {
-  const id = getNotificationService().add({
+): Promise<string> => {
+  const notificationData: Omit<AppNotification, "id" | "timestamp" | "read"> = {
     title,
     message,
     type,
     category,
-    actionUrl: options?.actionUrl,
-    relatedId: options?.relatedId,
-  });
+  };
+  if (options?.actionUrl !== undefined) notificationData.actionUrl = options.actionUrl;
+  if (options?.relatedId !== undefined) notificationData.relatedId = options.relatedId;
+
+  const id = await getNotificationService().add(notificationData);
 
   TOAST_FN[type](message || title, {
     description: message ? title : undefined,
@@ -49,14 +51,14 @@ const _notify = (
 
 export const notify = _notify as NotifyFn;
 
-notify.success = (title, message, category, options) =>
+notify.success = async (title, message, category, options) =>
   _notify(title, message, "success", category ?? "system", options);
 
-notify.error = (title, message, category, options) =>
+notify.error = async (title, message, category, options) =>
   _notify(title, message, "error", category ?? "system", options);
 
-notify.warning = (title, message, category, options) =>
+notify.warning = async (title, message, category, options) =>
   _notify(title, message, "warning", category ?? "system", options);
 
-notify.info = (title, message, category, options) =>
+notify.info = async (title, message, category, options) =>
   _notify(title, message, "info", category ?? "system", options);

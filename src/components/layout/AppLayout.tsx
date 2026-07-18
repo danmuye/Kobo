@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useFinanceStore } from "@/store/finance";
 import { useNotificationStore } from "@/store/notifications";
+import { useTransactionModal } from "@/store/transaction-modal";
 import { getNotificationService } from "@/services/service-provider";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
+import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog";
 import { highlightMatch, searchFinanceData } from "@/features/search/utils";
 
 export default function AppLayout() {
@@ -25,6 +27,7 @@ export default function AppLayout() {
   const nsvc = getNotificationService();
 
   const searchResults = useMemo(() => searchFinanceData({ transactions, budgets, accounts, goals, debts }, query), [transactions, budgets, accounts, goals, debts, query]);
+  const openTransactionModal = useTransactionModal((s) => s.open);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -111,7 +114,7 @@ export default function AppLayout() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" className="hidden sm:inline-flex gap-1.5">
+            <Button size="sm" className="hidden sm:inline-flex gap-1.5" onClick={() => openTransactionModal("create")}>
               <Plus className="h-4 w-4" /> Add Transaction
             </Button>
 
@@ -155,6 +158,8 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <TransactionFormDialog />
     </div>
   );
 }

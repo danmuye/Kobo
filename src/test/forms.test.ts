@@ -38,19 +38,17 @@ describe("form schemas", () => {
     expect(result.success).toBe(true);
   });
 
-  it("validates account names and balances", () => {
+  it("validates account names and opening balance", () => {
     const result = accountSchema.safeParse({
       name: "",
       bank: "",
       type: "bank",
-      balance: -100,
       currency: "NGN",
     });
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.flatten().fieldErrors.name).toContain("Account name is required");
-      expect(result.error.flatten().fieldErrors.balance).toContain("Balance cannot be negative");
     }
   });
 });

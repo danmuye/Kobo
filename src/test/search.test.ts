@@ -13,7 +13,7 @@ describe("global search", () => {
       { id: "3", name: "Main Account", bank: "Access Bank", type: "bank" as const, balance: 200000, currency: "NGN" as const },
     ],
     goals: [
-      { id: "4", name: "Travel Fund", target: 1000000, saved: 200000, deadline: "2027-01-01", icon: "plane" },
+      { id: "4", name: "Travel Fund", targetAmount: 1000000, targetDate: "2027-01-01", startDate: "2026-01-01", fundingType: "Mixed" as const, categories: [], accounts: [], wallets: [], tags: [], color: "#8b5cf6", icon: "plane", priority: "medium" as const, notes: "", autoTrack: true, includeTransfers: false, createdAt: "2026-01-01", updatedAt: "2026-01-01" },
     ],
     debts: [
       { id: "5", name: "Student Loan", lender: "Access Bank", balance: 100000, originalAmount: 200000, interestRate: 5, minPayment: 10000, dueDate: "2026-12-31" },

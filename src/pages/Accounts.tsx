@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Plus, Pencil, Trash2, Landmark, Wallet, Banknote, CreditCard,
@@ -14,8 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormField, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { formatNaira, formatDate } from "@/lib/format";
-import type { Account, AccountType } from "@/types";
+import type { Account, AccountType, Transaction } from "@/types";
 import { notify } from "@/services/notifications";
+import { computeAccountBalance } from "@/services/account-balance";
+import { useFinanceStore } from "@/store/finance";
 import {
   useAccountsPage,
   useFilteredAccounts,
@@ -86,6 +88,7 @@ const accountColors = Object.keys(colorLabels);
 const empty: Omit<Account, "id"> = {
   name: "", bank: "", type: "bank", balance: 0, currency: "NGN",
   color: "#10b981", icon: "landmark", openingBalance: 0, notes: "",
+  createdAt: "", updatedAt: "",
 };
 
 const healthConfig = {
@@ -119,8 +122,16 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (v: string)
 
 export function AccountsView({ filterType }: { filterType?: AccountType | AccountType[] }) {
   const { summary, accounts, addAccount, updateAccount, deleteAccount } = useAccountsPage();
+  const transactions = useFinanceStore((s) => s.transactions);
   const list = useFilteredAccounts(filterType);
   const monthlyMap = useMonthlySummaryMap(summary);
+  const balanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of accounts) {
+      map.set(a.id, computeAccountBalance(a, transactions));
+    }
+    return map;
+  }, [accounts, transactions]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -133,10 +144,10 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
     try {
       const payload = toAccountPayload(values);
       if (editing) {
-        updateAccount(editing.id, payload);
+        await updateAccount(editing.id, payload);
         notify.success("Account updated", "", "account");
       } else {
-        addAccount(payload);
+        await addAccount(payload);
         notify.success("Account added", "", "account");
       }
       setOpen(false);
@@ -149,10 +160,10 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
     }
   }, [editing, addAccount, updateAccount, form]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
     try {
-      deleteAccount(deleteConfirm.id);
+      await deleteAccount(deleteConfirm.id);
       notify.success("Account deleted", "", "account");
     } catch {
       notify.error("Failed to delete account", "Please try again.", "account");
@@ -244,7 +255,7 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground">{a.bank} • {accountTypeLabels[a.type]}</p>
                 <h3 className="font-display font-semibold mt-0.5">{a.name}</h3>
-                <p className="mt-3 font-display text-2xl font-bold">{formatNaira(a.balance)}</p>
+                <p className="mt-3 font-display text-2xl font-bold">{formatNaira(balanceMap.get(a.id) ?? 0)}</p>
                 {a.notes && (
                   <p className="mt-1 text-xs text-muted-foreground truncate">{a.notes}</p>
                 )}
@@ -309,10 +320,9 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <RHFInput control={form.control} name="bank" label="Bank / Provider" />
-                <RHFInput control={form.control} name="balance" label="Balance (₦)" type="number" />
+                <RHFInput control={form.control} name="openingBalance" label="Opening Balance (₦)" type="number" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <RHFInput control={form.control} name="openingBalance" label="Opening Balance (₦)" type="number" />
                 <RHFSelect control={form.control} name="icon" label="Icon" options={iconOptions} />
               </div>
               <FormField

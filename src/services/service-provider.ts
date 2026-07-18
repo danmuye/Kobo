@@ -4,7 +4,6 @@ import { LocalSettingsService } from "./implementations/localStorage/settings";
 import { LocalNotificationService } from "./implementations/localStorage/notifications";
 import { initializeFirebase, isConfigured, getMissingConfigKeys } from "./firebase/config";
 import { getFirebaseStatus, onFirebaseStatusChange } from "./firebase/status";
-export type { FirebaseStatus } from "./firebase/status";
 
 export type BackendKind = "localStorage" | "firebase";
 
@@ -54,10 +53,6 @@ export function getSettingsService(): ISettingsService {
 
 export function getNotificationService(): INotificationService {
   return notificationService!;
-}
-
-export function getCurrentBackend(): BackendKind {
-  return currentBackend;
 }
 
 export function isFirebaseAvailable(): boolean {
@@ -147,11 +142,18 @@ export async function setBackend(
     currentLocalSettings = null;
     currentLocalNotif = null;
 
-    financeService = new FirebaseFinanceService(userId);
+    const fbFinance = new FirebaseFinanceService(userId);
     const fbSettings = new FirebaseSettingsService(userId);
-    settingsService = fbSettings;
-    notificationService = new FirebaseNotificationService(userId);
+    const fbNotif = new FirebaseNotificationService(userId);
 
-    await fbSettings.init();
+    financeService = fbFinance;
+    settingsService = fbSettings;
+    notificationService = fbNotif;
+
+    await Promise.all([
+      fbFinance.init(),
+      fbSettings.init(),
+      fbNotif.init(),
+    ]);
   }
 }

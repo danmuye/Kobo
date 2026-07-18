@@ -1,61 +1,43 @@
-import type { Budget, Debt, GoalContributionEntry, SavingsGoal } from "@/types";
-import { getFinanceService } from "./service-provider";
-import {
-  getBudgetPercentSpent,
-  getBudgetRemaining,
-  getBudgetOverspent,
-  getBudgetDailyAllowance,
-  getBudgetStatus,
-  getBudgetPreviousPercent,
-  getBudgetTrend,
-  getBudgetPreviousPeriod,
-  getGoalProgress,
-} from "@/store/finance";
+import type { Debt, Goal, Transaction } from "@/types";
+import { useFinanceStore, calculateGoalMetrics } from "@/store/finance";
+import { calculateDebtMetrics } from "@/services/debt-matching";
 
-export function getBudgetProgress(budget: Budget) {
-  return {
-    pct: getBudgetPercentSpent(budget),
-    remaining: getBudgetRemaining(budget),
-    overspent: getBudgetOverspent(budget),
-    dailyAllowance: getBudgetDailyAllowance(budget),
-    status: getBudgetStatus(budget),
-    previousPct: getBudgetPreviousPercent(budget),
-    trend: getBudgetTrend(budget),
-    previousPeriod: getBudgetPreviousPeriod(budget),
-  };
+export function getDebtTotals(debts: Debt[], transactions: Transaction[]) {
+  const safe = Array.isArray(debts) ? debts : [];
+  let totalOriginal = 0;
+  let totalPaid = 0;
+  let totalMin = 0;
+  for (const debt of safe) {
+    const m = calculateDebtMetrics(debt, transactions);
+    totalOriginal += debt.originalAmount;
+    totalPaid += m.amountPaid;
+    totalMin += debt.minimumPayment;
+  }
+  return { totalDebt: totalOriginal - totalPaid, totalOriginal, totalMin, paidOff: totalPaid };
 }
-
-export function getSavingsProgress(goal: SavingsGoal, contributions: GoalContributionEntry[]) {
-  return getGoalProgress(goal, contributions);
-}
-
-export function getDebtTotals(debts: Debt[]) {
-  const totalDebt = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const totalOriginal = debts.reduce((sum, debt) => sum + debt.originalAmount, 0);
-  const totalMin = debts.reduce((sum, debt) => sum + debt.minPayment, 0);
-  return { totalDebt, totalOriginal, totalMin, paidOff: totalOriginal - totalDebt };
-}
-
-export { getFinanceService };
 
 export function getAccounts() {
-  return getFinanceService().accounts.list();
+  return useFinanceStore.getState().accounts;
 }
 
 export function getTransactions() {
-  return getFinanceService().transactions.list();
-}
-
-export function getBudgets() {
-  return getFinanceService().budgets.list();
+  return useFinanceStore.getState().transactions;
 }
 
 export function getGoals() {
-  return getFinanceService().goals.list();
+  return useFinanceStore.getState().goals;
 }
 
 export function getDebts() {
-  return getFinanceService().debts.list();
+  return useFinanceStore.getState().debts;
 }
 
-export { getBudgetRemaining, getBudgetPercentSpent, getBudgetOverspent, getBudgetDailyAllowance, getBudgetStatus, getBudgetPreviousPercent, getBudgetTrend, getBudgetPreviousPeriod, getGoalProgress } from "@/store/finance";
+export function getSavingsProgress(goal: Goal, transactions: Transaction[]) {
+  return calculateGoalMetrics(goal, transactions);
+}
+
+export function getDebtPaidPercent(debt: Debt, transactions: Transaction[]) {
+  if (debt.originalAmount === 0) return 0;
+  const m = calculateDebtMetrics(debt, transactions);
+  return m.percentagePaid;
+}

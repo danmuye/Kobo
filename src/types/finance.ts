@@ -13,85 +13,98 @@ export interface Transaction {
   receiptUrl?: string | null;
   fromAccount?: string;
   toAccount?: string;
-}
-
-export type BudgetStatus = "on-track" | "near-limit" | "exceeded";
-
-export interface BudgetHistoryEntry {
-  /** The period this entry covers, e.g. "2026-06" (monthly), "2026-W25" (weekly), "2026" (yearly). */
-  periodKey: string;
-  /** Amount spent in that period. */
-  spent: number;
-  /** Budget amount for that period. */
-  amount: number;
-  /** ISO date when this entry was recorded. */
-  date: string;
+  tags?: string[];
+  merchant?: string;
+  budgetId?: string | null;
+  goalId?: string | null;
+  goalContributionId?: string | null;
+  debtId?: string | null;
 }
 
 export interface Budget {
   id: string;
   name: string;
-  category: string;
-  icon: string;
   amount: number;
-  spent: number;
-  period: "monthly" | "weekly" | "yearly";
-  /** Optional custom start date (ISO). When set with endDate, overrides the period-based date logic. */
+  period: "Monthly" | "Weekly" | "Yearly" | "Custom";
   startDate?: string;
-  /** Optional custom end date (ISO). When set with startDate, overrides the period-based date logic. */
   endDate?: string;
-  /** Historical spending snapshots from previous periods. */
-  history?: BudgetHistoryEntry[];
+  categories: string[];
+  accounts?: string[];
+  wallets?: string[];
+  tags?: string[];
+  color: string;
+  icon: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface GoalContributionEntry {
-  id: string;
-  /** Id of the goal this contribution belongs to. */
-  goalId: string;
-  /** Amount contributed. */
-  amount: number;
-  /** ISO date of the contribution. */
-  date: string;
-  /** Optional note describing the contribution. */
-  note?: string;
-}
+export type FundingType = "Income" | "Savings Transfer" | "Manual Deposit" | "Mixed";
+export type GoalPriority = "low" | "medium" | "high";
 
-export interface GoalMilestone {
-  id: string;
-  /** Id of the goal this milestone belongs to. */
-  goalId: string;
-  /** Percentage threshold: 10, 25, 50, 75, 90, or 100. */
-  pct: number;
-  /** ISO date when the milestone was first reached. */
-  reachedAt: string;
-  /** Whether a notification has already been shown for this milestone. */
-  notified: boolean;
-}
-
-export interface SavingsGoal {
+export interface Goal {
   id: string;
   name: string;
-  target: number;
-  saved: number;
-  deadline: string;
+  targetAmount: number;
+  targetDate: string;
+  startDate: string;
+  fundingType: FundingType;
+  categories: string[];
+  accounts: string[];
+  wallets: string[];
+  tags: string[];
+  color: string;
   icon: string;
-  /** ISO date when the goal was created. */
-  lastContributionDate?: string; // ISO date of the most recent contribution
+  priority: GoalPriority;
+  notes: string;
+  autoTrack: boolean;
+  includeTransfers: boolean;
   createdAt: string;
+  updatedAt: string;
 }
+
+export type DebtType = "Loan" | "Credit Card" | "Mortgage" | "Personal" | "Business" | "Other";
+export type RepaymentType = "Fixed" | "Minimum" | "Interest Only" | "Custom";
 
 export interface Debt {
   id: string;
   name: string;
   lender: string;
-  balance: number;
   originalAmount: number;
   interestRate: number;
-  minPayment: number;
+  debtType: DebtType;
+  repaymentType: RepaymentType;
+  minimumPayment: number;
   dueDate: string;
+  startDate: string;
+  categories: string[];
+  accounts: string[];
+  wallets: string[];
+  tags: string[];
+  color: string;
+  icon: string;
+  notes: string;
+  includeTransfers: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type AccountType = "bank" | "credit_card" | "mobile_wallet" | "cash" | "investment";
+
+export interface BudgetHistoryEntry {
+  id: string;
+  budgetId: string;
+  budgetName: string;
+  period: string;
+  amount: number;
+  spent: number;
+  remaining: number;
+  percentage: number;
+  transactionCount: number;
+  startDate: string;
+  endDate: string;
+  archivedAt: string;
+}
 
 export interface Account {
   id: string;
@@ -104,4 +117,6 @@ export interface Account {
   icon: string;
   openingBalance: number;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }

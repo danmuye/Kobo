@@ -1,10 +1,19 @@
-import type { Transaction, Budget, SavingsGoal, GoalContributionEntry, Debt, Account } from "@/types";
+import type { Transaction, Budget, Goal, Debt, Account } from "@/types";
 import {
   getTotalIncome, getTotalExpenses, getNetCashFlow,
-  getTotalSaved, getTotalTarget, getTotalSavingsProgress,
-  getMonthlyGoalContributions, getMonthlyChart, getCategoryBreakdown,
-  getMonthlySummary, getGoalProgress, getBudgetProgress, getCurrentBalance,
+  getMonthlyChart, getCategoryBreakdown,
+  getMonthlySummary, getCurrentBalance,
+  calculateGoalsTotal, getMonthlyGoalSavings, calculateGoalMetrics,
 } from "@/store/finance";
+import { calculateBudgetMetrics, computeBudgetUtilization as computeUtilization } from "./budget-matching";
+import { calculateDebtMetrics } from "./debt-matching";
+
+function safeNumber(v: unknown, fallback = 0): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+function safeDivide(a: number, b: number): number {
+  return b === 0 || !Number.isFinite(a) ? 0 : a / b;
+}
 
 export type DateRangePreset = "today" | "week" | "month" | "year" | "custom";
 
@@ -59,9 +68,10 @@ export function filterByDateRange<T extends { date: string }>(
   items: T[],
   range: DateRange,
 ): T[] {
+  const safe = Array.isArray(items) ? items : [];
   const startMs = new Date(range.start).getTime();
   const endMs = new Date(range.end).getTime() + 86_400_000;
-  return items.filter((item) => {
+  return safe.filter((item) => {
     const itemMs = new Date(item.date).getTime();
     return itemMs >= startMs && itemMs <= endMs;
   });
@@ -83,10 +93,11 @@ export interface IncomeExpensesReport {
 }
 
 export function computeIncomeExpenses(transactions: Transaction[]): IncomeExpensesReport {
+  const safe = Array.isArray(transactions) ? transactions : [];
   return {
-    totalIncome: getTotalIncome(transactions),
-    totalExpenses: getTotalExpenses(transactions),
-    netCashFlow: getNetCashFlow(transactions),
+    totalIncome: getTotalIncome(safe),
+    totalExpenses: getTotalExpenses(safe),
+    netCashFlow: getNetCashFlow(safe),
   };
 }
 
@@ -99,17 +110,17 @@ export interface SavingsGrowthReport {
 }
 
 export function computeSavingsGrowth(
-  goals: SavingsGoal[],
-  contributions: GoalContributionEntry[],
+  goals: Goal[],
+  transactions: Transaction[],
   months = 6,
 ): SavingsGrowthReport {
-  const progress = getTotalSavingsProgress(goals);
+  const progress = calculateGoalsTotal(goals, transactions);
   return {
-    totalSaved: progress.saved,
-    totalTarget: progress.target,
+    totalSaved: progress.totalSaved,
+    totalTarget: progress.totalTarget,
     remaining: progress.remaining,
     pct: progress.pct,
-    monthly: getMonthlyGoalContributions(contributions, months),
+    monthly: getMonthlyGoalSavings(goals, transactions, months),
   };
 }
 
@@ -117,18 +128,20 @@ export interface BudgetUtilizationReport {
   totalBudgeted: number;
   totalSpent: number;
   utilization: number;
-  budgets: (Budget & { progress: ReturnType<typeof getBudgetProgress> })[];
+  budgets: (Budget & { metrics: ReturnType<typeof calculateBudgetMetrics> })[];
 }
 
-export function computeBudgetUtilization(budgets: Budget[]): BudgetUtilizationReport {
-  const budgetsWithProgress = budgets.map((b) => ({ ...b, progress: getBudgetProgress(b) }));
-  const totalBudgeted = budgets.reduce((s, b) => s + b.amount, 0);
-  const totalSpent = budgets.reduce((s, b) => s + b.spent, 0);
+export function computeBudgetUtilization(budgets: Budget[], transactions: Transaction[]): BudgetUtilizationReport {
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeTxs = Array.isArray(transactions) ? transactions : [];
+  const withMetrics = safeBudgets.map((b) => ({ ...b, metrics: calculateBudgetMetrics(b, safeTxs) }));
+  const totalBudgeted = safeBudgets.reduce((s, b) => s + b.amount, 0);
+  const totalSpent = withMetrics.reduce((s, b) => s + b.metrics.spent, 0);
   return {
     totalBudgeted,
     totalSpent,
     utilization: totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0,
-    budgets: budgetsWithProgress,
+    budgets: withMetrics,
   };
 }
 
@@ -140,22 +153,30 @@ export interface DebtSummaryReport {
   count: number;
 }
 
-export function computeDebtSummary(debts: Debt[]): DebtSummaryReport {
-  const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
-  const totalOriginal = debts.reduce((s, d) => s + d.originalAmount, 0);
-  const totalMin = debts.reduce((s, d) => s + d.minPayment, 0);
+export function computeDebtSummary(debts: Debt[], transactions: Transaction[]): DebtSummaryReport {
+  const safe = Array.isArray(debts) ? debts : [];
+  let totalOriginal = 0;
+  let totalPaid = 0;
+  let totalMin = 0;
+  for (const d of safe) {
+    const m = calculateDebtMetrics(d, transactions);
+    totalOriginal += d.originalAmount;
+    totalPaid += m.amountPaid;
+    totalMin += d.minimumPayment;
+  }
   return {
-    totalDebt,
+    totalDebt: totalOriginal - totalPaid,
     totalOriginal,
     totalMin,
-    paidOff: totalOriginal - totalDebt,
-    count: debts.length,
+    paidOff: totalPaid,
+    count: safe.length,
   };
 }
 
-export function getDebtPaidPercent(debt: Debt): number {
+export function getDebtPaidPercent(debt: Debt, transactions: Transaction[]): number {
   if (debt.originalAmount === 0) return 0;
-  return ((debt.originalAmount - debt.balance) / debt.originalAmount) * 100;
+  const m = calculateDebtMetrics(debt, transactions);
+  return m.percentagePaid;
 }
 
 export interface AccountBalanceReport {
@@ -163,9 +184,9 @@ export interface AccountBalanceReport {
   accounts: Account[];
 }
 
-export function computeAccountBalances(accounts: Account[]): AccountBalanceReport {
+export function computeAccountBalances(accounts: Account[], transactions: Transaction[]): AccountBalanceReport {
   return {
-    totalBalance: getCurrentBalance(accounts),
+    totalBalance: getCurrentBalance(accounts, transactions),
     accounts,
   };
 }
@@ -186,25 +207,26 @@ export function computeReport(
   data: {
     transactions: Transaction[];
     budgets: Budget[];
-    goals: SavingsGoal[];
-    goalContributions: GoalContributionEntry[];
+    goals: Goal[];
     debts: Debt[];
     accounts: Account[];
-  },
+  } | null | undefined,
   range: DateRange,
 ): ReportResult {
+  const safe = data || {} as typeof data;
   const months = getMonthsFromRange(range);
+  const txs = Array.isArray(safe.transactions) ? safe.transactions : [];
 
   return {
     range,
-    incomeExpenses: computeIncomeExpenses(data.transactions),
-    savingsGrowth: computeSavingsGrowth(data.goals, data.goalContributions, months),
-    budgetUtilization: computeBudgetUtilization(data.budgets),
-    debtSummary: computeDebtSummary(data.debts),
-    accountBalances: computeAccountBalances(data.accounts),
-    monthlyChart: getMonthlyChart(data.transactions, months),
-    categoryBreakdown: getCategoryBreakdown(data.transactions),
-    monthlySummary: getMonthlySummary(data.transactions),
+    incomeExpenses: computeIncomeExpenses(txs),
+    savingsGrowth: computeSavingsGrowth(safe.goals, txs, months),
+    budgetUtilization: computeBudgetUtilization(safe.budgets, txs),
+    debtSummary: computeDebtSummary(safe.debts, txs),
+    accountBalances: computeAccountBalances(safe.accounts, txs),
+    monthlyChart: getMonthlyChart(txs, months),
+    categoryBreakdown: getCategoryBreakdown(txs),
+    monthlySummary: getMonthlySummary(txs),
   };
 }
 
@@ -258,9 +280,10 @@ export function computeSpendingTrend(
   transactions: Transaction[],
   range: DateRange,
 ): SpendingTrend {
+  const safe = Array.isArray(transactions) ? transactions : [];
   const prevRange = getPreviousDateRange(range);
-  const current = filterByDateRange(transactions, range);
-  const previous = filterByDateRange(transactions, prevRange);
+  const current = filterByDateRange(safe, range);
+  const previous = filterByDateRange(safe, prevRange);
   const currentTotal = getTotalExpenses(current);
   const previousTotal = getTotalExpenses(previous);
   const pctChange = computePctChange(currentTotal, previousTotal);
@@ -273,9 +296,10 @@ export function computeIncomeTrend(
   transactions: Transaction[],
   range: DateRange,
 ): SpendingTrend {
+  const safe = Array.isArray(transactions) ? transactions : [];
   const prevRange = getPreviousDateRange(range);
-  const current = filterByDateRange(transactions, range);
-  const previous = filterByDateRange(transactions, prevRange);
+  const current = filterByDateRange(safe, range);
+  const previous = filterByDateRange(safe, prevRange);
   const currentTotal = getTotalIncome(current);
   const previousTotal = getTotalIncome(previous);
   const pctChange = computePctChange(currentTotal, previousTotal);
@@ -301,31 +325,35 @@ export function computeHealthScore(
   debts: Debt[],
   range: DateRange,
 ): HealthScore {
-  const filtered = filterByDateRange(transactions, range);
-  const totalIncome = getTotalIncome(filtered);
-  const totalExpenses = getTotalExpenses(filtered);
+  const safeTxs = Array.isArray(transactions) ? transactions : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeDebts = Array.isArray(debts) ? debts : [];
+  const filtered = filterByDateRange(safeTxs, range);
+  const totalIncome = safeNumber(getTotalIncome(filtered));
+  const totalExpenses = safeNumber(getTotalExpenses(filtered));
 
   // Income/Expense ratio: 0-25 points
-  const ieRatio = totalIncome / Math.max(totalExpenses, 1);
-  const incomeExpense = Math.min(25, Math.round(ieRatio * 7.5));
+  const ieRatio = safeDivide(totalIncome, Math.max(totalExpenses, 1));
+  const incomeExpense = Math.min(25, Math.round(safeNumber(ieRatio * 7.5)));
 
   // Savings rate: 0-25 points
-  const savingsRateVal = Math.max(totalIncome - totalExpenses, 0) / Math.max(totalIncome, 1);
-  const savingsRate = Math.min(25, Math.round(savingsRateVal * 125));
+  const savingsRateVal = safeDivide(Math.max(totalIncome - totalExpenses, 0), Math.max(totalIncome, 1));
+  const savingsRate = Math.min(25, Math.round(safeNumber(savingsRateVal * 125)));
 
   // Budget adherence: 0-25 points
-  const totalBudgeted = budgets.reduce((s, b) => s + b.amount, 0);
-  const totalSpent = budgets.reduce((s, b) => s + Math.min(b.spent, b.amount), 0);
-  const utilization = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 100;
-  const budgetAdherence = Math.max(0, Math.round(25 - utilization / 4));
+  const { totalBudgeted, totalSpent } = safeBudgets.length > 0 ? computeUtilization(safeBudgets, safeTxs) : { totalBudgeted: 0, totalSpent: 0 };
+  const safeBudgeted = safeNumber(totalBudgeted);
+  const safeSpent = safeNumber(totalSpent);
+  const utilization = safeBudgeted > 0 ? (safeSpent / safeBudgeted) * 100 : 100;
+  const budgetAdherence = Math.max(0, Math.round(safeNumber(25 - safeDivide(utilization, 4))));
 
   // Debt level: 0-25 points
-  const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
-  const annualIncome = totalIncome || 1;
-  const debtRatio = totalDebt / annualIncome;
-  const debtLevel = Math.max(0, Math.min(25, Math.round(25 * (1 - Math.min(debtRatio, 2) / 2))));
+  const totalDebt = safeDebts.reduce((s, d) => s + safeNumber(d.originalAmount), 0);
+  const annualIncome = safeNumber(totalIncome) || 1;
+  const debtRatio = safeDivide(totalDebt, annualIncome);
+  const debtLevel = Math.max(0, Math.min(25, Math.round(safeNumber(25 * (1 - safeDivide(Math.min(debtRatio, 2), 2))))));
 
-  const score = incomeExpense + savingsRate + budgetAdherence + debtLevel;
+  const score = safeNumber(incomeExpense) + safeNumber(savingsRate) + safeNumber(budgetAdherence) + safeNumber(debtLevel);
 
   let label: string;
   if (score >= 80) label = "Excellent";
@@ -350,19 +378,23 @@ export interface FinancialInsights {
 export function computeFinancialInsights(
   transactions: Transaction[],
   budgets: Budget[],
-  goals: SavingsGoal[],
-  goalContributions: GoalContributionEntry[],
+  goals: Goal[],
   debts: Debt[],
   range: DateRange,
 ): FinancialInsights {
-  const filtered = filterByDateRange(transactions, range);
+  const safeTxs = Array.isArray(transactions) ? transactions : [];
+  const safeBudgets = Array.isArray(budgets) ? budgets : [];
+  const safeGoals = Array.isArray(goals) ? goals : [];
+  const safeDebts = Array.isArray(debts) ? debts : [];
+  const filtered = filterByDateRange(safeTxs, range);
   const expenseTransactions = filtered.filter((t) => t.type === "expense");
 
   // Highest spending category
   const categoryMap = new Map<string, number>();
-  expenseTransactions.forEach((t) => {
+  for (let i = 0; i < expenseTransactions.length; i++) {
+    const t = expenseTransactions[i];
     categoryMap.set(t.category, (categoryMap.get(t.category) || 0) + t.amount);
-  });
+  }
   const categoryEntries = Array.from(categoryMap.entries()).sort((a, b) => b[1] - a[1]);
   const totalExpenses = expenseTransactions.reduce((s, t) => s + t.amount, 0);
   const highestSpendingCategory = categoryEntries.length > 0
@@ -376,33 +408,33 @@ export function computeFinancialInsights(
 
   // Fastest growing savings goal (highest monthly contribution rate)
   let fastestGrowingGoal: FinancialInsights["fastestGrowingGoal"] = null;
-  if (goals.length > 0) {
+  if (safeGoals.length > 0) {
     let bestRate = 0;
-    for (const g of goals) {
-      const progress = getGoalProgress(g, goalContributions);
-      if (progress.monthlyRate > bestRate) {
-        bestRate = progress.monthlyRate;
+    for (let i = 0; i < safeGoals.length; i++) {
+      const metrics = calculateGoalMetrics(safeGoals[i], safeTxs);
+      if (metrics.averageMonthlyRate > bestRate) {
+        bestRate = metrics.averageMonthlyRate;
         fastestGrowingGoal = {
-          goalId: g.id,
-          goalName: g.name,
-          monthlyRate: progress.monthlyRate,
-          pct: progress.pct,
+          goalId: safeGoals[i].id,
+          goalName: safeGoals[i].name,
+          monthlyRate: metrics.averageMonthlyRate,
+          pct: metrics.percentage,
         };
       }
     }
   }
 
   // Budget overspending summary
-  const overspentBudgets = budgets.filter((b) => b.spent > b.amount);
+  const overspentBudgets = safeBudgets.filter((b) => calculateBudgetMetrics(b, safeTxs).isOverBudget);
   const budgetOverspending = {
     overspentCount: overspentBudgets.length,
-    totalOverspent: overspentBudgets.reduce((s, b) => s + (b.spent - b.amount), 0),
+    totalOverspent: overspentBudgets.reduce((s, b) => s + calculateBudgetMetrics(b, safeTxs).spent - b.amount, 0),
     overspentNames: overspentBudgets.map((b) => b.name),
   };
 
-  const healthScore = computeHealthScore(transactions, budgets, debts, range);
-  const spendingTrend = computeSpendingTrend(transactions, range);
-  const incomeTrend = computeIncomeTrend(transactions, range);
+  const healthScore = computeHealthScore(safeTxs, safeBudgets, safeDebts, range);
+  const spendingTrend = computeSpendingTrend(safeTxs, range);
+  const incomeTrend = computeIncomeTrend(safeTxs, range);
 
   return {
     highestSpendingCategory,
@@ -436,10 +468,12 @@ export function computeComparison(
   },
   range: DateRange,
 ): ComparisonResult {
+  const safeData = data && data.transactions ? data : { transactions: [] };
+  const safeTxs = Array.isArray(safeData.transactions) ? safeData.transactions : [];
   const prevRange = getPreviousDateRange(range);
 
-  const currentTxs = filterByDateRange(data.transactions, range);
-  const previousTxs = filterByDateRange(data.transactions, prevRange);
+  const currentTxs = filterByDateRange(safeTxs, range);
+  const previousTxs = filterByDateRange(safeTxs, prevRange);
 
   const current = computeIncomeExpenses(currentTxs);
   const previous = computeIncomeExpenses(previousTxs);
@@ -484,7 +518,8 @@ export function filterTransactions(
     types?: string[];
   },
 ): Transaction[] {
-  return transactions.filter((t) => {
+  const safe = Array.isArray(transactions) ? transactions : [];
+  return safe.filter((t) => {
     if (filters.categories && filters.categories.length > 0 && !filters.categories.includes(t.category)) return false;
     if (filters.accounts && filters.accounts.length > 0) {
       const matchesAccount = t.account && filters.accounts.includes(t.account);

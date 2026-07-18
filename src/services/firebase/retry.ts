@@ -46,6 +46,16 @@ export async function withRetry<T>(
     } catch (err) {
       lastError = err;
       const errorObj = err as { code?: string };
+
+      if (import.meta.env.DEV) {
+        const willRetry = attempt < opts.maxAttempts - 1 && isRetryable(errorObj, opts);
+        console.warn(
+          `[Firestore] Attempt ${attempt + 1}/${opts.maxAttempts} failed`,
+          `code=${errorObj.code ?? "unknown"}`,
+          willRetry ? `— retrying...` : `— giving up`,
+        );
+      }
+
       if (attempt < opts.maxAttempts - 1 && isRetryable(errorObj, opts)) {
         const delay = calculateDelay(attempt, opts);
         await new Promise((resolve) => setTimeout(resolve, delay));

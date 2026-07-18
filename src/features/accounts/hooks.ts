@@ -40,7 +40,7 @@ export function useAccountsPage() {
 
   const summary: AccountSummary = useMemo(
     () => ({
-      currentBalance: getCurrentBalance(accounts),
+      currentBalance: getCurrentBalance(accounts, transactions),
       availableBalance: getAvailableBalance(accounts, transactions),
       totalIncome: getTotalIncome(transactions),
       totalExpenses: getTotalExpenses(transactions),
