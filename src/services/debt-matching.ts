@@ -48,26 +48,24 @@ export function getDebtStatus(pct: number, isPaidOff: boolean, isOverdue: boolea
   return { label: "Getting started", value: "critical" };
 }
 
-function transactionMatchesDebtType(tx: Transaction, debt: Debt): boolean {
-  if (tx.type === "income") return false;
-  if (tx.type === "expense") return true;
-  if (tx.type === "transfer" && debt.includeTransfers) return true;
-  return false;
-}
-
 export function getMatchingDebtTransactions(
   debt: Debt,
   transactions: Transaction[],
 ): Transaction[] {
   const startMs = new Date(debt.startDate).getTime();
   return transactions.filter((t) => {
-    if (t.debtId === debt.id) return true;
+    // Must be explicitly linked to this debt
+    if (t.debtId !== debt.id) return false;
 
-    if (!transactionMatchesDebtType(t, debt)) return false;
-
+    // Date range check
     const txMs = new Date(t.date).getTime();
     if (txMs < startMs) return false;
 
+    // Type checks
+    if (t.type === "income") return false;
+    if (t.type === "transfer" && !debt.includeTransfers) return false;
+
+    // Filter validations (additional constraints, not auto-assignment)
     const cats = getDebtSafeArray(debt.categories);
     if (cats.length > 0 && !cats.includes(t.category)) return false;
 

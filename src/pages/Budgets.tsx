@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Form } from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { ColorPicker } from "@/components/ui/color-picker";
 import type { Budget } from "@/types";
 import { notify } from "@/services/notifications";
 import { formatNaira, formatDate } from "@/lib/format";
@@ -420,7 +421,15 @@ export default function Budgets() {
                 </div>
               </details>
               <RHFTextArea control={form.control} name="notes" label="Notes" placeholder="Optional notes..." />
-              <RHFInput control={form.control} name="color" label="Color (hex)" placeholder="#3b82f6" />
+              <FormField control={form.control} name="color" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Color</FormLabel>
+                  <FormControl>
+                    <ColorPicker value={field.value ?? ""} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { form.reset(empty); setEditing(null); setOpen(false); }}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : editing ? "Save" : "Create"}</Button>

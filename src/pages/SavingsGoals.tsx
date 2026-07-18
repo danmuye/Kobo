@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Form } from "@/components/ui/form";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { ColorPicker } from "@/components/ui/color-picker";
 import type { Goal } from "@/types";
 import { notify } from "@/services/notifications";
 import { useGoalsPage } from "@/features/goals/hooks";
@@ -311,7 +312,15 @@ export default function SavingsGoals() {
                 </label>
               </div>
               <RHFTextArea control={form.control} name="notes" label="Notes" placeholder="Optional notes" rows={2} />
-              <RHFInput control={form.control} name="color" label="Color (hex)" type="text" placeholder="#8b5cf6" />
+              <FormField control={form.control} name="color" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Color</FormLabel>
+                  <FormControl>
+                    <ColorPicker value={field.value ?? ""} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { form.reset(emptyGoal); setEditingGoal(null); setGoalOpen(false); }}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Saving..." : editingGoal ? "Save" : "Create"}</Button>

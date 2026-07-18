@@ -60,7 +60,7 @@ describe("calculateDebtInsights", () => {
       ...baseDebt,
       startDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
     };
-    const transactions = [tx({ id: "1", amount: 30000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 30000 }), debtId: debt.id }];
     const insights = calculateDebtInsights(debt, transactions);
     expect(insights.averageMonthlyRepayment).toBeGreaterThan(0);
     expect(insights.paymentCount).toBeUndefined();
@@ -68,9 +68,9 @@ describe("calculateDebtInsights", () => {
 
   it("detects largest and smallest payments", () => {
     const transactions = [
-      tx({ id: "1", amount: 10000 }),
-      tx({ id: "2", amount: 50000 }),
-      tx({ id: "3", amount: 25000 }),
+      { ...tx({ id: "1", amount: 10000 }), debtId: baseDebt.id },
+      { ...tx({ id: "2", amount: 50000 }), debtId: baseDebt.id },
+      { ...tx({ id: "3", amount: 25000 }), debtId: baseDebt.id },
     ];
     const insights = calculateDebtInsights(baseDebt, transactions);
     expect(insights.largestPayment).toBe(50000);
@@ -78,7 +78,7 @@ describe("calculateDebtInsights", () => {
   });
 
   it("estimates payoff date when making payments", () => {
-    const transactions = [tx({ id: "1", amount: 50000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 50000 }), debtId: baseDebt.id }];
     const insights = calculateDebtInsights(baseDebt, transactions);
     expect(insights.estimatedPayoffDate).not.toBeNull();
     expect(insights.debtFreeForecast).toBeGreaterThan(0);
@@ -92,8 +92,8 @@ describe("calculateDebtInsights", () => {
 
   it("health score is between 0 and 100", () => {
     const transactions = [
-      tx({ id: "1", amount: 50000 }),
-      tx({ id: "2", amount: 30000 }),
+      { ...tx({ id: "1", amount: 50000 }), debtId: baseDebt.id },
+      { ...tx({ id: "2", amount: 30000 }), debtId: baseDebt.id },
     ];
     const insights = calculateDebtInsights(baseDebt, transactions);
     expect(insights.debtHealthScore).toBeGreaterThanOrEqual(0);
@@ -102,8 +102,8 @@ describe("calculateDebtInsights", () => {
 
   it("calculates payment frequency", () => {
     const transactions = [
-      tx({ id: "1", amount: 10000 }),
-      tx({ id: "2", amount: 20000 }),
+      { ...tx({ id: "1", amount: 10000 }), debtId: baseDebt.id },
+      { ...tx({ id: "2", amount: 20000 }), debtId: baseDebt.id },
     ];
     const insights = calculateDebtInsights(baseDebt, transactions);
     expect(insights.paymentFrequency).toBeGreaterThan(0);
@@ -128,7 +128,7 @@ describe("getPaymentTrend", () => {
   });
 
   it("includes payments in correct month", () => {
-    const transactions = [tx({ id: "1", amount: 25000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 25000 }), debtId: baseDebt.id }];
     const trend = getPaymentTrend(baseDebt, transactions);
     const currentMonth = new Date().toLocaleString("en-US", { month: "short", year: "2-digit" });
     const current = trend.find((t) => t.month === currentMonth);
@@ -138,7 +138,7 @@ describe("getPaymentTrend", () => {
 
 describe("getOutstandingTrend", () => {
   it("returns outstanding balance per month", () => {
-    const transactions = [tx({ id: "1", amount: 100000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 100000 }), debtId: baseDebt.id }];
     const trend = getOutstandingTrend(baseDebt, transactions);
     expect(trend.length).toBe(12);
     expect(trend[0].outstanding).toBeLessThanOrEqual(baseDebt.originalAmount);
@@ -149,7 +149,7 @@ describe("getDebtDistribution", () => {
   it("calculates distribution across debts", () => {
     const debtA = { ...baseDebt, id: "a", originalAmount: 500000 };
     const debtB = { ...baseDebt, id: "b", originalAmount: 300000 };
-    const txs = [tx({ id: "1", amount: 50000 })];
+    const txs = [{ ...tx({ id: "1", amount: 50000 }), debtId: "a" }];
     const dist = getDebtDistribution([debtA, debtB], txs);
     expect(dist).toHaveLength(2);
     expect(dist[0].originalAmount).toBe(500000);
@@ -180,7 +180,7 @@ describe("getDebtUtilization", () => {
   });
 
   it("shows progress after payments", () => {
-    const txs = [tx({ id: "1", amount: 200000 })];
+    const txs = [{ ...tx({ id: "1", amount: 200000 }), debtId: baseDebt.id }];
     const util = getDebtUtilization([baseDebt], txs);
     expect(util.totalPaid).toBeGreaterThan(0);
     expect(util.payoffProgress).toBeGreaterThan(0);
@@ -191,8 +191,8 @@ describe("getPaymentCalendar", () => {
   it("returns sorted payment entries", () => {
     const now = new Date();
     const transactions = [
-      tx({ id: "1", amount: 30000, date: new Date(now.getFullYear(), now.getMonth() - 1, 15).toISOString() }),
-      tx({ id: "2", amount: 20000, date: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString() }),
+      { ...tx({ id: "1", amount: 30000, date: new Date(now.getFullYear(), now.getMonth() - 1, 15).toISOString() }), debtId: baseDebt.id },
+      { ...tx({ id: "2", amount: 20000, date: new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString() }), debtId: baseDebt.id },
     ];
     const calendar = getPaymentCalendar(baseDebt, transactions);
     expect(calendar).toHaveLength(2);
@@ -217,7 +217,7 @@ describe("getDebtAnalytics", () => {
 describe("archiveDebtMetrics", () => {
   it("creates a history entry for paid debt", () => {
     const debt = { ...baseDebt, id: "arch-1", originalAmount: 100000 };
-    const transactions = [tx({ id: "1", amount: 100000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 100000 }), debtId: "arch-1" }];
     const entry = archiveDebtMetrics(debt, transactions);
     expect(entry.debtId).toBe("arch-1");
     expect(entry.amountPaid).toBe(100000);
@@ -244,7 +244,7 @@ describe("getDebtPaymentMilestones", () => {
 
   it("marks milestones as achieved based on payments", () => {
     const debt = { ...baseDebt, originalAmount: 100000 };
-    const transactions = [tx({ id: "1", amount: 30000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 30000 }), debtId: debt.id }];
     const milestones = getDebtPaymentMilestones(debt, transactions);
     expect(milestones[0].achieved).toBe(true);
     expect(milestones[1].achieved).toBe(false);
@@ -290,7 +290,7 @@ describe("store integration — debt history", () => {
 
     const store = useFinanceStore.getState();
     const debt = { ...baseDebt, id: "store-hist-1", originalAmount: 100000 };
-    const transactions = [tx({ id: "hist-tx-1", amount: 100000 })];
+    const transactions = [{ ...tx({ id: "hist-tx-1", amount: 100000 }), debtId: "store-hist-1" }];
     const entry = archiveDebtMetrics(debt, transactions);
     store.addDebtHistory(entry);
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Paperclip, ReceiptText, Tag, Wallet, Clock, CreditCard } from "lucide-react";
+import { Paperclip, ReceiptText, Tag, Wallet, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
@@ -13,7 +13,6 @@ import { getBudgetCategories, calculateBudgetMetrics } from "@/services/budget-m
 import { formatNaira } from "@/lib/format";
 import { useTransactionModal } from "@/store/transaction-modal";
 import { getFinanceService } from "@/services/service-provider";
-import { getMatchingDebtTransactions } from "@/services/debt-matching";
 
 const categories = [
   "Food & Dining", "Transportation", "Rent", "Utilities", "Entertainment",
@@ -75,6 +74,7 @@ function buildDefaultValues(accounts: string[]): TransactionFormValues {
     tags: last.tags || "",
     merchant: "",
     budgetId: "",
+    debtId: "",
   } satisfies TransactionFormValues;
 }
 
@@ -94,6 +94,7 @@ function buildFromTransaction(tx: Transaction, accounts: string[]): TransactionF
     tags: Array.isArray(tx.tags) ? tx.tags.join(", ") : "",
     merchant: tx.merchant ?? "",
     budgetId: tx.budgetId ?? "",
+    debtId: tx.debtId ?? "",
   };
 }
 
@@ -130,11 +131,13 @@ export function TransactionFormDialog() {
     defaultValues,
   });
   const selectedType = form.watch("type");
-  const watchedValues = form.watch();
 
   const [allocateToGoal, setAllocateToGoal] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState("");
   const [contributionAmount, setContributionAmount] = useState(0);
+
+  const [isDebtPayment, setIsDebtPayment] = useState(false);
+  const [selectedDebtId, setSelectedDebtId] = useState("");
 
   useEffect(() => {
     if (mode === "edit" && editingTransaction?.goalContributionId) {
@@ -150,6 +153,16 @@ export function TransactionFormDialog() {
       setContributionAmount(0);
     }
   }, [mode, editingTransaction, allTransactions, isOpen]);
+
+  useEffect(() => {
+    if (mode === "edit" && editingTransaction?.debtId) {
+      setIsDebtPayment(true);
+      setSelectedDebtId(editingTransaction.debtId);
+    } else if (!isOpen) {
+      setIsDebtPayment(false);
+      setSelectedDebtId("");
+    }
+  }, [mode, editingTransaction, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -310,27 +323,6 @@ export function TransactionFormDialog() {
   const allBudgets = useFinanceStore((s) => s.budgets);
   const allDebts = useFinanceStore((s) => s.debts);
 
-  const matchingDebts = useMemo(() => {
-    if (!watchedValues.amount || watchedValues.amount <= 0 || allDebts.length === 0) return [];
-    const txSnapshot: Transaction = {
-      id: "pending",
-      date: watchedValues.date || new Date().toISOString(),
-      description: watchedValues.description || "",
-      category: watchedValues.category || "",
-      account: watchedValues.type === "transfer" ? (watchedValues.fromAccount || "") : (watchedValues.account || ""),
-      amount: watchedValues.amount,
-      type: watchedValues.type,
-      tags: watchedValues.tags ? watchedValues.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
-      fromAccount: watchedValues.type === "transfer" ? watchedValues.fromAccount : undefined,
-      toAccount: watchedValues.type === "transfer" ? watchedValues.toAccount : undefined,
-      merchant: watchedValues.merchant || undefined,
-    };
-    return allDebts.filter((d) => {
-      const matching = getMatchingDebtTransactions(d, [txSnapshot]);
-      return matching.length > 0;
-    });
-  }, [watchedValues, allDebts]);
-
   const budgetOptions = useMemo(() => {
     if (!selectedCategory) return [];
     return allBudgets
@@ -379,9 +371,50 @@ export function TransactionFormDialog() {
                 )}
               </div>
               {selectedType === "transfer" ? (
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:col-span-2">
-                  <RHFSelect control={form.control} name="fromAccount" label="From account" options={accountNames.map((name) => ({ label: name, value: name }))} />
-                  <RHFSelect control={form.control} name="toAccount" label="To account" options={accountNames.map((name) => ({ label: name, value: name }))} />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:col-span-2">
+                    <RHFSelect control={form.control} name="fromAccount" label="From account" options={accountNames.map((name) => ({ label: name, value: name }))} />
+                    <RHFSelect control={form.control} name="toAccount" label="To account" options={accountNames.map((name) => ({ label: name, value: name }))} />
+                  </div>
+                  {allDebts.length > 0 && (
+                    <div className="rounded-lg border border-border/70 p-3 space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={isDebtPayment}
+                          onChange={(e) => {
+                            setIsDebtPayment(e.target.checked);
+                            if (e.target.checked && !selectedDebtId && allDebts.length > 0) {
+                              setSelectedDebtId(allDebts[0].id);
+                            }
+                            if (!e.target.checked) {
+                              setSelectedDebtId("");
+                              form.setValue("debtId", "");
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-border"
+                        />
+                        <span className="text-sm font-medium">Apply Transfer to Debt</span>
+                      </label>
+                      {isDebtPayment && (
+                        <div>
+                          <label className="text-xs font-medium text-muted-foreground">Select Debt</label>
+                          <select
+                            value={selectedDebtId}
+                            onChange={(e) => {
+                              setSelectedDebtId(e.target.value);
+                              form.setValue("debtId", e.target.value);
+                            }}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1.5"
+                          >
+                            {allDebts.map((d) => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div>
@@ -424,21 +457,43 @@ export function TransactionFormDialog() {
               </div>
             )}
 
-            {matchingDebts.length > 0 && (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3 space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
-                  <CreditCard className="h-3.5 w-3.5" /> Debt Repayment Detected
-                </div>
-                <div className="space-y-1.5">
-                  {matchingDebts.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between text-xs">
-                      <span className="truncate">{d.name}</span>
-                      <span className="font-medium text-muted-foreground">
-                        {formatNaira(d.originalAmount)} remaining
-                      </span>
-                    </div>
-                  ))}
-                </div>
+            {selectedType === "expense" && allDebts.length > 0 && (
+              <div className="rounded-lg border border-border/70 p-3 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isDebtPayment}
+                    onChange={(e) => {
+                      setIsDebtPayment(e.target.checked);
+                      if (e.target.checked && !selectedDebtId && allDebts.length > 0) {
+                        setSelectedDebtId(allDebts[0].id);
+                      }
+                      if (!e.target.checked) {
+                        setSelectedDebtId("");
+                        form.setValue("debtId", "");
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  <span className="text-sm font-medium">Debt Payment</span>
+                </label>
+                {isDebtPayment && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Select Debt</label>
+                    <select
+                      value={selectedDebtId}
+                      onChange={(e) => {
+                        setSelectedDebtId(e.target.value);
+                        form.setValue("debtId", e.target.value);
+                      }}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1.5"
+                    >
+                      {allDebts.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 

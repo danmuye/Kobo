@@ -41,40 +41,50 @@ function tx(overrides: Partial<Transaction> & { id: string }): Transaction {
 
 describe("debt-matching service", () => {
   describe("getMatchingDebtTransactions", () => {
-    it("matches expense transactions to debts", () => {
+    it("matches expense transactions with matching debtId", () => {
       const transactions = [
-        tx({ id: "1", type: "expense", amount: 25000 }),
-        tx({ id: "2", type: "income", amount: 100000 }),
+        { ...tx({ id: "1", type: "expense", amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", type: "income", amount: 100000 }), debtId: "debt-1" },
       ];
       const matched = getMatchingDebtTransactions(baseDebt, transactions);
       expect(matched).toHaveLength(1);
       expect(matched[0].id).toBe("1");
     });
 
-    it("does not match income transactions", () => {
-      const transactions = [tx({ id: "1", type: "income", amount: 50000 })];
+    it("ignores income transactions even with matching debtId", () => {
+      const transactions = [{ ...tx({ id: "1", type: "income", amount: 50000 }), debtId: "debt-1" }];
       const matched = getMatchingDebtTransactions(baseDebt, transactions);
       expect(matched).toHaveLength(0);
     });
 
-    it("includes transfers when includeTransfers is true", () => {
+    it("includes transfers with matching debtId when includeTransfers is true", () => {
       const debt = { ...baseDebt, includeTransfers: true };
-      const transactions = [tx({ id: "1", type: "transfer", amount: 30000 })];
+      const transactions = [{ ...tx({ id: "1", type: "transfer", amount: 30000 }), debtId: "debt-1" }];
       const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(1);
     });
 
-    it("excludes transfers when includeTransfers is false", () => {
-      const transactions = [tx({ id: "1", type: "transfer", amount: 30000 })];
+    it("excludes transfers even with matching debtId when includeTransfers is false", () => {
+      const transactions = [{ ...tx({ id: "1", type: "transfer", amount: 30000 }), debtId: "debt-1" }];
       const matched = getMatchingDebtTransactions(baseDebt, transactions);
+      expect(matched).toHaveLength(0);
+    });
+
+    it("excludes transactions without matching debtId even if category matches", () => {
+      const debt = { ...baseDebt, categories: ["Utilities", "Rent"] };
+      const transactions = [
+        tx({ id: "1", category: "Utilities", amount: 25000 }),
+        tx({ id: "2", category: "Food & Dining", amount: 5000 }),
+      ];
+      const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(0);
     });
 
     it("filters by category when debt has categories", () => {
       const debt = { ...baseDebt, categories: ["Utilities", "Rent"] };
       const transactions = [
-        tx({ id: "1", category: "Utilities", amount: 25000 }),
-        tx({ id: "2", category: "Food & Dining", amount: 5000 }),
+        { ...tx({ id: "1", category: "Utilities", amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", category: "Food & Dining", amount: 5000 }), debtId: "debt-1" },
       ];
       const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(1);
@@ -84,8 +94,8 @@ describe("debt-matching service", () => {
     it("filters by account when debt has accounts", () => {
       const debt = { ...baseDebt, accounts: ["Main"] };
       const transactions = [
-        tx({ id: "1", account: "Main", amount: 25000 }),
-        tx({ id: "2", account: "Savings", amount: 5000 }),
+        { ...tx({ id: "1", account: "Main", amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", account: "Savings", amount: 5000 }), debtId: "debt-1" },
       ];
       const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(1);
@@ -95,8 +105,8 @@ describe("debt-matching service", () => {
     it("filters by tag when debt has tags", () => {
       const debt = { ...baseDebt, tags: ["debt-payment"] };
       const transactions = [
-        tx({ id: "1", tags: ["debt-payment"], amount: 25000 }),
-        tx({ id: "2", tags: ["groceries"], amount: 5000 }),
+        { ...tx({ id: "1", tags: ["debt-payment"], amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", tags: ["groceries"], amount: 5000 }), debtId: "debt-1" },
       ];
       const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(1);
@@ -109,20 +119,28 @@ describe("debt-matching service", () => {
         startDate: "2025-06-01T00:00:00.000Z",
       };
       const transactions = [
-        tx({ id: "1", date: "2025-07-01T00:00:00.000Z", amount: 25000 }),
-        tx({ id: "2", date: "2025-01-01T00:00:00.000Z", amount: 5000 }),
+        { ...tx({ id: "1", date: "2025-07-01T00:00:00.000Z", amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", date: "2025-01-01T00:00:00.000Z", amount: 5000 }), debtId: "debt-1" },
       ];
       const matched = getMatchingDebtTransactions(debt, transactions);
       expect(matched).toHaveLength(1);
       expect(matched[0].id).toBe("1");
+    });
+
+    it("requires explicit debtId to match", () => {
+      const transactions = [
+        tx({ id: "1", type: "expense", category: "Utilities", amount: 25000 }),
+      ];
+      const matched = getMatchingDebtTransactions(baseDebt, transactions);
+      expect(matched).toHaveLength(0);
     });
   });
 
   describe("calculateDebtMetrics", () => {
     it("calculates amount paid correctly", () => {
       const transactions = [
-        tx({ id: "1", amount: 25000 }),
-        tx({ id: "2", amount: 15000 }),
+        { ...tx({ id: "1", amount: 25000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", amount: 15000 }), debtId: "debt-1" },
       ];
       const metrics = calculateDebtMetrics(baseDebt, transactions);
       expect(metrics.amountPaid).toBe(40000);
@@ -139,7 +157,7 @@ describe("debt-matching service", () => {
     });
 
     it("marks debt as paid off when enough payments made", () => {
-      const transactions = [tx({ id: "1", amount: 500000 })];
+      const transactions = [{ ...tx({ id: "1", amount: 500000 }), debtId: "debt-1" }];
       const metrics = calculateDebtMetrics(baseDebt, transactions);
       expect(metrics.isPaidOff).toBe(true);
       expect(metrics.remainingBalance).toBe(0);
@@ -147,7 +165,7 @@ describe("debt-matching service", () => {
     });
 
     it("marks debt as paid off when overpaid", () => {
-      const transactions = [tx({ id: "1", amount: 600000 })];
+      const transactions = [{ ...tx({ id: "1", amount: 600000 }), debtId: "debt-1" }];
       const metrics = calculateDebtMetrics(baseDebt, transactions);
       expect(metrics.isPaidOff).toBe(true);
       expect(metrics.remainingBalance).toBe(0);
@@ -167,9 +185,9 @@ describe("debt-matching service", () => {
 
     it("calculates correct payment count", () => {
       const transactions = [
-        tx({ id: "1", amount: 10000 }),
-        tx({ id: "2", amount: 20000 }),
-        tx({ id: "3", amount: 30000 }),
+        { ...tx({ id: "1", amount: 10000 }), debtId: "debt-1" },
+        { ...tx({ id: "2", amount: 20000 }), debtId: "debt-1" },
+        { ...tx({ id: "3", amount: 30000 }), debtId: "debt-1" },
       ];
       const metrics = calculateDebtMetrics(baseDebt, transactions);
       expect(metrics.paymentCount).toBe(3);
@@ -180,7 +198,7 @@ describe("debt-matching service", () => {
         ...baseDebt,
         startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
       };
-      const transactions = [tx({ id: "1", amount: 30000 })];
+      const transactions = [{ ...tx({ id: "1", amount: 30000 }), debtId: "debt-1" }];
       const metrics = calculateDebtMetrics(debt, transactions);
       expect(metrics.monthlyPaid).toBeGreaterThan(0);
       expect(metrics.paymentCount).toBe(1);
@@ -202,13 +220,13 @@ describe("debt-matching service", () => {
       const debtA = { ...baseDebt, id: "a", originalAmount: 500000, minimumPayment: 25000 };
       const debtB = { ...baseDebt, id: "b", originalAmount: 300000, minimumPayment: 15000 };
       const transactions = [
-        tx({ id: "1", amount: 50000 }),
-        tx({ id: "2", amount: 30000 }),
+        { ...tx({ id: "1", amount: 50000 }), debtId: "a" },
+        { ...tx({ id: "2", amount: 30000 }), debtId: "b" },
       ];
       const totals = calculateDebtTotals([debtA, debtB], transactions);
       expect(totals.totalOriginal).toBe(800000);
-      expect(totals.totalPaid).toBe(160000);
-      expect(totals.totalRemaining).toBe(640000);
+      expect(totals.totalPaid).toBe(80000);
+      expect(totals.totalRemaining).toBe(720000);
       expect(totals.totalMin).toBe(40000);
       expect(totals.count).toBe(2);
     });
@@ -285,8 +303,8 @@ describe("debt store integration", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"] });
 
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
-    store.addTransaction(tx({ id: "tx-2", category: "Food & Dining", amount: 10000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-1" });
+    store.addTransaction({ ...tx({ id: "tx-2", category: "Food & Dining", amount: 10000 }), debtId: "d-1" });
 
     const metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
@@ -328,8 +346,8 @@ describe("debt store integration", () => {
   it("deleting a transaction reduces debt amount paid", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"] });
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
-    store.addTransaction(tx({ id: "tx-2", category: "Utilities", amount: 30000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-1" });
+    store.addTransaction({ ...tx({ id: "tx-2", category: "Utilities", amount: 30000 }), debtId: "d-1" });
 
     let metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
@@ -345,7 +363,7 @@ describe("debt store integration", () => {
     expect(metrics.amountPaid).toBe(30000);
   });
 
-  it("handles multiple debts sharing categories", () => {
+  it("handles multiple debts with explicit debtId linking", () => {
     const store = useFinanceStore.getState();
 
     const debtA = { ...baseDebt, id: "d-a", name: "Loan A", categories: ["Utilities"] };
@@ -353,16 +371,15 @@ describe("debt store integration", () => {
     store.addDebt(debtA);
     store.addDebt(debtB);
 
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-a" });
 
     const txs = useFinanceStore.getState().transactions;
     const metricsA = calculateDebtMetrics(debtA, txs);
     const metricsB = calculateDebtMetrics(debtB, txs);
 
     expect(metricsA.amountPaid).toBe(50000);
-    expect(metricsB.amountPaid).toBe(50000);
+    expect(metricsB.amountPaid).toBe(0);
     expect(metricsA.paymentCount).toBe(1);
-    expect(metricsB.paymentCount).toBe(1);
   });
 
   it("adding a transaction increases debt amount paid", () => {
@@ -375,7 +392,7 @@ describe("debt store integration", () => {
     );
     expect(metrics.amountPaid).toBe(0);
 
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 25000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 25000 }), debtId: "d-1" });
     metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
       useFinanceStore.getState().transactions,
@@ -387,7 +404,7 @@ describe("debt store integration", () => {
   it("editing a transaction amount updates debt metrics", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"] });
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 25000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 25000 }), debtId: "d-1" });
 
     store.updateTransaction("tx-1", { amount: 50000 });
 
@@ -399,20 +416,20 @@ describe("debt store integration", () => {
     expect(metrics.remainingBalance).toBe(450000);
   });
 
-  it("editing a transaction category can move it between debts", () => {
+  it("editing a transaction debtId moves it between debts", () => {
     const store = useFinanceStore.getState();
     const debtA = { ...baseDebt, id: "d-a", name: "Loan A", categories: ["Utilities"] };
     const debtB = { ...baseDebt, id: "d-b", name: "Loan B", categories: ["Rent"] };
     store.addDebt(debtA);
     store.addDebt(debtB);
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-a" });
 
     let metricsA = calculateDebtMetrics(debtA, useFinanceStore.getState().transactions);
     let metricsB = calculateDebtMetrics(debtB, useFinanceStore.getState().transactions);
     expect(metricsA.amountPaid).toBe(50000);
     expect(metricsB.amountPaid).toBe(0);
 
-    store.updateTransaction("tx-1", { category: "Rent" });
+    store.updateTransaction("tx-1", { debtId: "d-b", category: "Rent" });
 
     metricsA = calculateDebtMetrics(debtA, useFinanceStore.getState().transactions);
     metricsB = calculateDebtMetrics(debtB, useFinanceStore.getState().transactions);
@@ -423,8 +440,8 @@ describe("debt store integration", () => {
   it("deleting a repayment transaction reduces debt amount paid", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"] });
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
-    store.addTransaction(tx({ id: "tx-2", category: "Utilities", amount: 30000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-1" });
+    store.addTransaction({ ...tx({ id: "tx-2", category: "Utilities", amount: 30000 }), debtId: "d-1" });
 
     store.deleteTransaction("tx-1");
 
@@ -439,7 +456,7 @@ describe("debt store integration", () => {
   it("deleting a debt does not affect transactions", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"] });
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-1" });
 
     expect(useFinanceStore.getState().transactions).toHaveLength(1);
     store.deleteDebt("d-1");
@@ -450,7 +467,7 @@ describe("debt store integration", () => {
   it("editing a debt's original amount recalculates remaining balance", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"], originalAmount: 500000 });
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 100000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 100000 }), debtId: "d-1" });
 
     store.updateDebt("d-1", { originalAmount: 300000 });
 
@@ -466,14 +483,14 @@ describe("debt store integration", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", categories: ["Utilities"], originalAmount: 100000 });
 
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-1" });
     let metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
       useFinanceStore.getState().transactions,
     );
     expect(metrics.isPaidOff).toBe(false);
 
-    store.addTransaction(tx({ id: "tx-2", category: "Utilities", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-2", category: "Utilities", amount: 50000 }), debtId: "d-1" });
     metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
       useFinanceStore.getState().transactions,
@@ -482,15 +499,15 @@ describe("debt store integration", () => {
     expect(metrics.remainingBalance).toBe(0);
   });
 
-  it("multiple debts with shared categories each track their own metrics", () => {
+  it("multiple debts with explicit debtId each track their own metrics", () => {
     const store = useFinanceStore.getState();
     const debtA = { ...baseDebt, id: "d-a", name: "Loan A", categories: ["Utilities"], originalAmount: 200000 };
     const debtB = { ...baseDebt, id: "d-b", name: "Loan B", categories: ["Utilities", "Rent"], originalAmount: 300000 };
     store.addDebt(debtA);
     store.addDebt(debtB);
 
-    store.addTransaction(tx({ id: "tx-1", category: "Utilities", amount: 50000 }));
-    store.addTransaction(tx({ id: "tx-2", category: "Rent", amount: 25000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", category: "Utilities", amount: 50000 }), debtId: "d-a" });
+    store.addTransaction({ ...tx({ id: "tx-2", category: "Rent", amount: 25000 }), debtId: "d-b" });
 
     const txs = useFinanceStore.getState().transactions;
     const metricsA = calculateDebtMetrics(debtA, txs);
@@ -500,16 +517,16 @@ describe("debt store integration", () => {
     expect(metricsA.paymentCount).toBe(1);
     expect(metricsA.remainingBalance).toBe(150000);
 
-    expect(metricsB.amountPaid).toBe(75000);
-    expect(metricsB.paymentCount).toBe(2);
-    expect(metricsB.remainingBalance).toBe(225000);
+    expect(metricsB.amountPaid).toBe(25000);
+    expect(metricsB.paymentCount).toBe(1);
+    expect(metricsB.remainingBalance).toBe(275000);
   });
 
   it("calculateDebtTotals includes updated metrics after transaction edit", () => {
     const store = useFinanceStore.getState();
     const debtA = { ...baseDebt, id: "d-a", originalAmount: 500000, minimumPayment: 25000 };
     store.addDebt(debtA);
-    store.addTransaction(tx({ id: "tx-1", amount: 50000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", amount: 50000 }), debtId: "d-a" });
 
     let totals = calculateDebtTotals(useFinanceStore.getState().debts, useFinanceStore.getState().transactions);
     expect(totals.totalPaid).toBe(50000);
@@ -532,9 +549,9 @@ describe("debt store integration", () => {
     };
 
     const transactions = [
-      tx({ id: "1", category: "Utilities", account: "Main", tags: ["debt-payment"], amount: 10000 }),
-      tx({ id: "2", category: "Utilities", account: "Savings", tags: ["debt-payment"], amount: 10000 }),
-      tx({ id: "3", category: "Utilities", account: "Main", tags: ["groceries"], amount: 10000 }),
+      { ...tx({ id: "1", category: "Utilities", account: "Main", tags: ["debt-payment"], amount: 10000 }), debtId: "debt-1" },
+      { ...tx({ id: "2", category: "Utilities", account: "Savings", tags: ["debt-payment"], amount: 10000 }), debtId: "debt-1" },
+      { ...tx({ id: "3", category: "Utilities", account: "Main", tags: ["groceries"], amount: 10000 }), debtId: "debt-1" },
     ];
 
     const matched = getMatchingDebtTransactions(debt, transactions);
@@ -545,39 +562,39 @@ describe("debt store integration", () => {
   it("matches transactions via wallet field when debt has wallets", () => {
     const debt = { ...baseDebt, id: "d-wallet", wallets: ["PayPal", "Mobile Money"] };
     const transactions = [
-      tx({ id: "1", account: "PayPal", amount: 15000 }),
-      tx({ id: "2", account: "Main Bank", amount: 5000 }),
+      { ...tx({ id: "1", account: "PayPal", amount: 15000 }), debtId: "d-wallet" },
+      { ...tx({ id: "2", account: "Main Bank", amount: 5000 }), debtId: "d-wallet" },
     ];
     const matched = getMatchingDebtTransactions(debt, transactions);
     expect(matched).toHaveLength(1);
     expect(matched[0].id).toBe("1");
   });
 
-  it("matches transactions via merchant description", () => {
+  it("calculates metrics with explicit debtId linking", () => {
     const debt = { ...baseDebt, id: "d-merchant", categories: ["Utilities"] };
     const transactions = [
-      tx({ id: "1", category: "Utilities", merchant: "Electric Company", amount: 25000 }),
-      tx({ id: "2", category: "Utilities", merchant: "Water Works", amount: 15000 }),
+      { ...tx({ id: "1", category: "Utilities", merchant: "Electric Company", amount: 25000 }), debtId: "d-merchant" },
+      { ...tx({ id: "2", category: "Utilities", merchant: "Water Works", amount: 15000 }), debtId: "d-merchant" },
     ];
     const metrics = calculateDebtMetrics(debt, transactions);
     expect(metrics.amountPaid).toBe(40000);
     expect(metrics.paymentCount).toBe(2);
   });
 
-  it("editing a transaction moves it between debts via wallet change", () => {
+  it("editing a transaction debtId moves it between debts via wallet change", () => {
     const store = useFinanceStore.getState();
     const debtA = { ...baseDebt, id: "d-wa", name: "Wallet Debt A", wallets: ["PayPal"] };
     const debtB = { ...baseDebt, id: "d-wb", name: "Wallet Debt B", wallets: ["Mobile Money"] };
     store.addDebt(debtA);
     store.addDebt(debtB);
-    store.addTransaction(tx({ id: "tx-1", account: "PayPal", amount: 30000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", account: "PayPal", amount: 30000 }), debtId: "d-wa" });
 
     let metricsA = calculateDebtMetrics(debtA, useFinanceStore.getState().transactions);
     let metricsB = calculateDebtMetrics(debtB, useFinanceStore.getState().transactions);
     expect(metricsA.amountPaid).toBe(30000);
     expect(metricsB.amountPaid).toBe(0);
 
-    store.updateTransaction("tx-1", { account: "Mobile Money" });
+    store.updateTransaction("tx-1", { debtId: "d-wb", account: "Mobile Money" });
 
     metricsA = calculateDebtMetrics(debtA, useFinanceStore.getState().transactions);
     metricsB = calculateDebtMetrics(debtB, useFinanceStore.getState().transactions);
@@ -593,7 +610,7 @@ describe("debt store integration", () => {
       startDate: "2023-01-01T00:00:00.000Z",
       dueDate: "2024-01-01T00:00:00.000Z",
     };
-    const transactions = [tx({ id: "1", amount: 50000 })];
+    const transactions = [{ ...tx({ id: "1", amount: 50000 }), debtId: "d-overdue-partial" }];
     const metrics = calculateDebtMetrics(debt, transactions, new Date("2025-06-01"));
     expect(metrics.isOverdue).toBe(true);
     expect(metrics.remainingBalance).toBe(150000);
@@ -614,18 +631,18 @@ describe("debt store integration", () => {
     const debtB = { ...baseDebt, id: "d-b", originalAmount: 200000, minimumPayment: 20000 };
     store.addDebt(debtA);
     store.addDebt(debtB);
-    store.addTransaction(tx({ id: "tx-1", amount: 100000 }));
+    store.addTransaction({ ...tx({ id: "tx-1", amount: 100000 }), debtId: "d-a" });
 
     const totals = calculateDebtTotals(useFinanceStore.getState().debts, useFinanceStore.getState().transactions);
     expect(totals.totalOriginal).toBe(300000);
-    expect(totals.totalPaid).toBe(200000);
+    expect(totals.totalPaid).toBe(100000);
     expect(totals.totalMin).toBe(30000);
   });
 
   describe("debtId payment flow", () => {
-    it("getMatchingDebtTransactions includes expense with matching debtId", () => {
+    it("getMatchingDebtTransactions includes expense with matching debtId and category", () => {
       const debt = { ...baseDebt, categories: ["Utilities"] };
-      const txWithDebtId = tx({ id: "1", category: "NonMatching", amount: 5000 });
+      const txWithDebtId = tx({ id: "1", category: "Utilities", amount: 5000 });
       txWithDebtId.debtId = "debt-1";
       const transactions = [txWithDebtId];
       const matched = getMatchingDebtTransactions(debt, transactions);
@@ -635,7 +652,7 @@ describe("debt store integration", () => {
 
     it("expense payment adds to debt amountPaid", () => {
       const debt = { ...baseDebt, categories: ["Utilities"] };
-      const txWithDebtId = tx({ id: "1", category: "NonMatching", amount: 10000 });
+      const txWithDebtId = tx({ id: "1", category: "Utilities", amount: 10000 });
       txWithDebtId.debtId = "debt-1";
       const transactions = [txWithDebtId];
       const metrics = calculateDebtMetrics(debt, transactions);
@@ -655,13 +672,13 @@ describe("debt store integration", () => {
       expect(metrics.paymentCount).toBe(2);
     });
 
-    it("debtId payments bypass category filter", () => {
+    it("debtId payments must also pass category filter", () => {
       const debt = { ...baseDebt, categories: ["Utilities"] };
       const txWithDebtId = tx({ id: "1", category: "Food", amount: 5000 });
       txWithDebtId.debtId = "debt-1";
       const transactions = [txWithDebtId];
       const matched = getMatchingDebtTransactions(debt, transactions);
-      expect(matched).toHaveLength(1);
+      expect(matched).toHaveLength(0);
     });
 
     it("adding payment transaction via store updates metrics dynamically", () => {
@@ -727,7 +744,7 @@ describe("debt store integration", () => {
     const store = useFinanceStore.getState();
     store.addDebt({ ...baseDebt, id: "d-1", startDate: "2020-01-01", categories: ["Utilities"] });
 
-    store.addTransaction(tx({ id: "old", date: "2021-06-01", category: "Utilities", amount: 25000 }));
+    store.addTransaction({ ...tx({ id: "old", date: "2021-06-01", category: "Utilities", amount: 25000 }), debtId: "d-1" });
     let metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
       useFinanceStore.getState().transactions,
@@ -735,7 +752,7 @@ describe("debt store integration", () => {
     expect(metrics.amountPaid).toBe(25000);
     expect(metrics.paymentCount).toBe(1);
 
-    store.addTransaction(tx({ id: "new", date: new Date().toISOString(), category: "Utilities", amount: 15000 }));
+    store.addTransaction({ ...tx({ id: "new", date: new Date().toISOString(), category: "Utilities", amount: 15000 }), debtId: "d-1" });
     metrics = calculateDebtMetrics(
       useFinanceStore.getState().debts[0],
       useFinanceStore.getState().transactions,

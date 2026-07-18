@@ -18,6 +18,7 @@ export const transactionSchema = z.object({
   tags: z.string().optional().default(""),
   merchant: z.string().optional().default(""),
   budgetId: z.string().optional().default(""),
+  debtId: z.string().optional().default(""),
 }).superRefine((values, ctx) => {
   if (values.type === "transfer") {
     if (!values.fromAccount?.trim()) {
@@ -179,6 +180,7 @@ export const toTransactionPayload = (values: TransactionFormValues): Omit<Transa
     payload.merchant = values.merchant.trim();
   }
   payload.budgetId = values.budgetId || null;
+  payload.debtId = values.debtId || null;
   return payload;
 };
 
