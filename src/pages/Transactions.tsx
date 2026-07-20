@@ -8,6 +8,8 @@ import type { Transaction } from "@/types";
 import { notify } from "@/services/notifications";
 import { useTransactionsPage } from "@/features/transactions/hooks";
 import { useTransactionModal } from "@/store/transaction-modal";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { EmptyState } from "@/components/common/EmptyState";
 import { motion } from "framer-motion";
 
 type TransactionSort = "date-desc" | "date-asc" | "amount-desc" | "amount-asc" | "description-asc";
@@ -19,6 +21,7 @@ export default function Transactions() {
   const pageSize = 8;
   const searchRef = useRef<HTMLInputElement>(null);
   const openModal = useTransactionModal((s) => s.open);
+  const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -60,6 +63,18 @@ export default function Transactions() {
   const currentPage = Math.min(page, totalPages);
   const visibleTransactions = sortedTransactions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteTransaction(deleteTarget.id);
+      notify.success("Transaction deleted", "", "transaction");
+    } catch {
+      notify.error("Failed to delete transaction", "", "transaction");
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
   useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
@@ -87,17 +102,18 @@ export default function Transactions() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search transactions…"
-              className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus:border-ring transition"
+               className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
               aria-label="Search transactions"
             />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/30">
+            <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/30" role="group" aria-label="Filter by transaction type">
               {(["all", "income", "expense", "transfer"] as const).map((k) => (
                 <button
                   key={k}
                   onClick={() => setFilter(k)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition ${
+                  aria-pressed={filter === k}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     filter === k ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -105,7 +121,7 @@ export default function Transactions() {
                 </button>
               ))}
             </div>
-            <select value={sort} onChange={(e) => setSort(e.target.value as TransactionSort)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm" aria-label="Sort transactions">
+            <select value={sort} onChange={(e) => setSort(e.target.value as TransactionSort)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Sort transactions">
               <option value="date-desc">Newest</option>
               <option value="date-asc">Oldest</option>
               <option value="amount-desc">Highest amount</option>
@@ -131,11 +147,21 @@ export default function Transactions() {
               {visibleTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-16 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <ReceiptText className="h-8 w-8 text-muted-foreground/40" />
-                      <p className="text-sm text-muted-foreground">No transactions found.</p>
-                      <p className="text-xs text-muted-foreground/60">Try a different search or add a new transaction.</p>
-                    </div>
+                    {query || filter !== "all" ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Search className="h-8 w-8 text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">No transactions match your search.</p>
+                        <p className="text-xs text-muted-foreground/60">Try adjusting your filters or search terms.</p>
+                      </div>
+                    ) : (
+                      <EmptyState
+                        icon={ReceiptText}
+                        title="No transactions found"
+                        description="Add your first transaction to start tracking your money."
+                        action={{ label: "Add Transaction", onClick: () => openModal("create") }}
+                        compact
+                      />
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -185,7 +211,7 @@ export default function Transactions() {
                         <Button size="icon" variant="ghost" onClick={() => openModal("edit", t)} aria-label="Edit transaction">
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={async () => { try { await deleteTransaction(t.id); notify.success("Transaction deleted", "", "transaction"); } catch { notify.error("Failed to delete transaction", "", "transaction"); } }} aria-label="Delete transaction">
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteTarget(t)} aria-label="Delete transaction">
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -210,6 +236,15 @@ export default function Transactions() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}
+        title="Delete Transaction"
+        description={`Are you sure you want to delete "${deleteTarget?.description || "this transaction"}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

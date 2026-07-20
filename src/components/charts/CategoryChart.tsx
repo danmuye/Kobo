@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
@@ -13,7 +14,7 @@ interface CategoryChartProps {
   height?: number;
 }
 
-export function CategoryChart({ data, height = 256 }: CategoryChartProps) {
+export const CategoryChart = memo(function CategoryChart({ data, height = 256 }: CategoryChartProps) {
   return (
     <div style={{ height }} className="flex items-center">
       <ResponsiveContainer width="100%" height="100%">
@@ -47,4 +48,4 @@ export function CategoryChart({ data, height = 256 }: CategoryChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

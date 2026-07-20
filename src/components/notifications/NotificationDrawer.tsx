@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { memo, useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell, CheckCheck, Trash2, Search, ArrowUpDown,
@@ -22,7 +22,7 @@ interface NotificationDrawerProps {
   onClearAll: () => void;
 }
 
-export function NotificationDrawer({
+export const NotificationDrawer = memo(function NotificationDrawer({
   open,
   notifications,
   onMarkRead,
@@ -187,4 +187,4 @@ export function NotificationDrawer({
       )}
     </AnimatePresence>
   );
-}
+});

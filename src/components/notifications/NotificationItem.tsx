@@ -82,10 +82,10 @@ export const NotificationItem = memo(function NotificationItem({
           </p>
         )}
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-[10px] text-muted-foreground/50">
+          <span className="text-[10px] text-muted-foreground/70">
             {formatRelativeTime(n.timestamp)}
           </span>
-          <span className="text-[10px] text-muted-foreground/30 capitalize">
+          <span className="text-[10px] text-muted-foreground/50 capitalize">
             {n.category}
           </span>
         </div>
@@ -100,7 +100,7 @@ export const NotificationItem = memo(function NotificationItem({
         {!n.read && (
           <button
             onClick={() => onMarkRead(n.id)}
-            className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Mark "${n.title}" as read`}
           >
             <Check className="h-3.5 w-3.5" aria-hidden />
@@ -108,7 +108,7 @@ export const NotificationItem = memo(function NotificationItem({
         )}
         <button
           onClick={() => onDelete(n.id)}
-          className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={`Delete notification: ${n.title}`}
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />

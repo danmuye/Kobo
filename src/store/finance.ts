@@ -7,6 +7,7 @@ import { migrateGoal, getMatchingGoalTransactions } from "@/services/goal-matchi
 import { migrateDebt } from "@/services/debt-matching";
 import { archiveDebtMetrics } from "@/services/debt-history";
 import { computeBalances } from "@/services/account-balance";
+import { getAccountsActivity, type ActivityLevel } from "@/services/account-activity";
 const id = () => Math.random().toString(36).slice(2, 10);
 
 interface State {
@@ -369,6 +370,8 @@ export interface ActivityTimelineEntry {
   amount: number;
   type: TransactionType;
   relatedAccount?: string;
+  fromAccount?: string;
+  toAccount?: string;
 }
 
 /** The most recent transactions for a given account, formatted as a timeline. */
@@ -398,7 +401,7 @@ export interface AccountHealth {
   accountName: string;
   growth: number;
   incomeExpenseRatio: number;
-  activityLevel: "high" | "medium" | "low" | "inactive";
+  activityLevel: ActivityLevel;
   monthlyTransactionsAvg: number;
   monthsOfExpensesCovered: number;
   trend: "up" | "down" | "stable";
@@ -415,6 +418,9 @@ export function getAccountsHealth(
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
   const recentTxs = safeTxs.filter((t) => new Date(t.date) >= threeMonthsAgo);
   const balanceMap = computeBalances(safeAcc, safeTxs);
+  const activityMap = new Map(
+    getAccountsActivity(safeAcc, safeTxs).map((a) => [a.accountName, a.activityLevel]),
+  );
 
   return safeAcc.map((account) => {
     const accountTxs = recentTxs.filter((t) => {
@@ -436,15 +442,10 @@ export function getAccountsHealth(
 
     const incomeExpenseRatio = netExpenses > 0 ? netIncome / netExpenses : netIncome > 0 ? Infinity : 1;
 
-    // Activity level based on monthly transaction count
     const monthsInRange = 3;
     const transactionCount = accountTxs.length;
     const monthlyTransactionsAvg = transactionCount / monthsInRange;
-    const activityLevel: AccountHealth["activityLevel"] =
-      monthlyTransactionsAvg >= 8 ? "high"
-        : monthlyTransactionsAvg >= 3 ? "medium"
-          : monthlyTransactionsAvg >= 1 ? "low"
-            : "inactive";
+    const activityLevel = activityMap.get(account.name) ?? "inactive";
 
     // Months of expenses covered by current balance
     const monthlyExpenseAvg = totalExpenses / monthsInRange;

@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { Budget } from "@/types";
 import { notify } from "@/services/notifications";
 import { formatNaira, formatDate } from "@/lib/format";
@@ -52,7 +53,6 @@ function budgetToFormValues(b: Budget): BudgetFormValues {
 function BudgetOverview({ budget, onClose }: { budget: BudgetWithDetails; onClose: () => void }) {
   const transactions = useFinanceStore((s) => s.transactions);
   const allBudgets = useFinanceStore((s) => s.budgets);
-  const allTxns = useFinanceStore((s) => s.transactions);
   const metrics = useMemo(() => calculateBudgetMetrics(budget, transactions), [budget, transactions]);
   const cats = getBudgetCategories(budget);
 
@@ -64,7 +64,7 @@ function BudgetOverview({ budget, onClose }: { budget: BudgetWithDetails; onClos
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, cats]);
 
-  const summary = useMemo(() => computeBudgetUtilization(allBudgets, allTxns), [allBudgets, allTxns]);
+  const summary = useMemo(() => computeBudgetUtilization(allBudgets, transactions), [allBudgets, transactions]);
 
   const utilizationPct = summary.totalBudgeted > 0 ? (summary.totalSpent / summary.totalBudgeted) * 100 : 0;
 
@@ -172,7 +172,7 @@ function BudgetOverview({ budget, onClose }: { budget: BudgetWithDetails; onClos
             budget={budget}
             transactions={transactions}
             allBudgets={allBudgets}
-            allTransactions={allTxns}
+            allTransactions={transactions}
           />
         </TabsContent>
 
@@ -408,7 +408,7 @@ export default function Budgets() {
                 <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-muted-foreground group-open:text-foreground">
                   <Calendar className="h-4 w-4" />
                   <span>Date range &amp; filters</span>
-                  <span className="ml-auto text-xs opacity-60">optional</span>
+                  <span className="ml-auto text-xs text-muted-foreground/70">optional</span>
                 </summary>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <RHFInput control={form.control} name="startDate" label="Start date" type="date" />
@@ -439,20 +439,14 @@ export default function Budgets() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deleteConfirm} onOpenChange={(o) => { if (!o) setDeleteConfirm(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Budget</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? This action cannot be undone. Transactions will not be affected.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(o) => { if (!o) setDeleteConfirm(null); }}
+        title="Delete Budget"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone. Transactions will not be affected.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
 
       <Dialog open={!!transactionsOpen} onOpenChange={(o) => { if (!o) setTransactionsOpen(null); }}>
         {transactionsOpen && (

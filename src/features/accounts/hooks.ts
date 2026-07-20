@@ -21,6 +21,7 @@ import type {
 } from "@/store/finance";
 import type { AccountType, Account } from "@/types";
 import { getFinanceService } from "@/services/service-provider";
+import { computeBalances } from "@/services/account-balance";
 
 export interface AccountSummary {
   currentBalance: number;
@@ -32,6 +33,7 @@ export interface AccountSummary {
   monthlyAccountSummary: MonthlyAccountSummaryEntry[];
   trends: AccountTrend[];
   accountHealth: AccountHealth[];
+  balanceMap: Map<string, number>;
 }
 
 export function useAccountsPage() {
@@ -49,6 +51,7 @@ export function useAccountsPage() {
       monthlyAccountSummary: getMonthlyAccountSummary(accounts, transactions),
       trends: getMonthlyAccountTrends(accounts, transactions),
       accountHealth: getAccountsHealth(accounts, transactions),
+      balanceMap: computeBalances(accounts, transactions),
     }),
     [accounts, transactions],
   );

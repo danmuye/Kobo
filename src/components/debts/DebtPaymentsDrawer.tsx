@@ -30,11 +30,14 @@ export function DebtPaymentsDrawer({ debt, transactions, open, onOpenChange }: D
     [metrics],
   );
 
-  if (!debt || !metrics || !statusInfo) return null;
-
-  const sorted = [...matchingTxs].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  const sorted = useMemo(
+    () => [...matchingTxs].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    ),
+    [matchingTxs],
   );
+
+  if (!debt || !metrics || !statusInfo) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -99,7 +102,7 @@ export function DebtPaymentsDrawer({ debt, transactions, open, onOpenChange }: D
             </p>
           </div>
         ) : (
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-lg border border-border overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>

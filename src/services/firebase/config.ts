@@ -4,6 +4,7 @@ import type { Auth } from "firebase/auth";
 import type { FirebaseStorage } from "firebase/storage";
 import { toFirebaseServiceError } from "./errors";
 import { updateFirebaseStatus, startConnectionMonitoring } from "./status";
+import { setupRetryQueue } from "./retry";
 
 const REQUIRED_VARS = [
   "VITE_FIREBASE_API_KEY",
@@ -93,6 +94,12 @@ export async function initializeFirebase(): Promise<void> {
       }
 
       monitoringCleanup = startConnectionMonitoring();
+      const cleanupRetry = setupRetryQueue();
+      const origCleanup = monitoringCleanup;
+      monitoringCleanup = () => {
+        origCleanup();
+        cleanupRetry();
+      };
       initResolved = true;
       updateFirebaseStatus({ connection: "connected", isInitialized: true });
     } catch (err) {

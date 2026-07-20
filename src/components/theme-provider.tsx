@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useSettingsStore } from "@/store/settings";
 import type { ThemeMode } from "@/store/settings";
 
@@ -62,20 +62,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 
+  const toggle = useCallback(() => {
+    const idx = themeCycle.indexOf(theme);
+    updateAppearance({ theme: themeCycle[(idx + 1) % themeCycle.length] });
+  }, [theme, updateAppearance]);
+
+  const setTheme = useCallback((t: ThemeMode) => updateAppearance({ theme: t }), [updateAppearance]);
+
+  const ctx = useMemo<Ctx>(
+    () => ({ theme, resolvedTheme, toggle, setTheme }),
+    [theme, resolvedTheme, toggle, setTheme],
+  );
+
   if (!ready) return null;
 
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        resolvedTheme,
-        toggle: () => {
-          const idx = themeCycle.indexOf(theme);
-          updateAppearance({ theme: themeCycle[(idx + 1) % themeCycle.length] });
-        },
-        setTheme: (t) => updateAppearance({ theme: t }),
-      }}
-    >
+    <ThemeContext.Provider value={ctx}>
       {children}
     </ThemeContext.Provider>
   );

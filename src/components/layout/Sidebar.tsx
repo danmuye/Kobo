@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -19,7 +20,7 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({
+export const Sidebar = memo(function Sidebar({
   collapsed,
   onToggle,
   mobileOpen,
@@ -78,7 +79,7 @@ export function Sidebar({
           </div>
           <button
             onClick={onToggle}
-            className="hidden lg:grid h-8 w-8 place-items-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition"
+            className="hidden lg:grid h-8 w-8 place-items-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
@@ -94,6 +95,7 @@ export function Sidebar({
                 key={item.to}
                 to={item.to}
                 onClick={onMobileClose}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
                   "transition-colors outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
@@ -137,4 +139,4 @@ export function Sidebar({
       </aside>
     </>
   );
-}
+});

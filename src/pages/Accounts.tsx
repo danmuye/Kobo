@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Plus, Pencil, Trash2, Landmark, Wallet, Banknote, CreditCard,
   TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Calendar,
-  Building, Smartphone, PiggyBank, Target, DollarSign, AlertTriangle,
+  Building, Smartphone, PiggyBank, Target, DollarSign,
   Activity,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -13,11 +13,12 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Form, FormField, FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { formatNaira, formatDate } from "@/lib/format";
-import type { Account, AccountType, Transaction } from "@/types";
+import type { Account, AccountType } from "@/types";
 import { notify } from "@/services/notifications";
-import { computeAccountBalance } from "@/services/account-balance";
-import { useFinanceStore } from "@/store/finance";
+import { useFinanceStore, getAccountActivityTimeline } from "@/store/finance";
+import type { ActivityTimelineEntry } from "@/store/finance";
 import {
   useAccountsPage,
   useFilteredAccounts,
@@ -92,10 +93,9 @@ const empty: Omit<Account, "id"> = {
 };
 
 const healthConfig = {
-  high: { label: "Very Active", color: "text-success", bg: "bg-success/10", icon: TrendingUp },
-  medium: { label: "Active", color: "text-primary", bg: "bg-primary/10", icon: Activity },
+  active: { label: "Active", color: "text-success", bg: "bg-success/10", icon: Activity },
   low: { label: "Low Activity", color: "text-warning", bg: "bg-warning/10", icon: Activity },
-  inactive: { label: "Inactive", color: "text-muted-foreground", bg: "bg-muted/30", icon: AlertTriangle },
+  inactive: { label: "Inactive", color: "text-muted-foreground", bg: "bg-muted/30", icon: Activity },
 };
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -125,13 +125,13 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
   const transactions = useFinanceStore((s) => s.transactions);
   const list = useFilteredAccounts(filterType);
   const monthlyMap = useMonthlySummaryMap(summary);
-  const balanceMap = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const a of accounts) {
-      map.set(a.id, computeAccountBalance(a, transactions));
+  const timelineMap = useMemo(() => {
+    const map = new Map<string, ActivityTimelineEntry[]>();
+    for (const a of list) {
+      map.set(a.id, getAccountActivityTimeline(a.name, transactions, 5));
     }
     return map;
-  }, [accounts, transactions]);
+  }, [list, transactions]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -218,7 +218,7 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
           <div className="grid h-16 w-16 place-items-center rounded-full bg-muted/50 mb-4">
             <Plus className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="font-display font-semibold text-lg">No accounts yet</h3>
+          <h2 className="font-display font-semibold text-lg">No accounts yet</h2>
           <p className="mt-1 text-sm text-muted-foreground text-center max-w-sm">
             {filterType
               ? "No accounts match the current filter. Add a new account to get started."
@@ -255,7 +255,7 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground">{a.bank} • {accountTypeLabels[a.type]}</p>
                 <h3 className="font-display font-semibold mt-0.5">{a.name}</h3>
-                <p className="mt-3 font-display text-2xl font-bold">{formatNaira(balanceMap.get(a.id) ?? 0)}</p>
+                <p className="mt-3 font-display text-2xl font-bold">{formatNaira(summary.balanceMap.get(a.id) ?? 0)}</p>
                 {a.notes && (
                   <p className="mt-1 text-xs text-muted-foreground truncate">{a.notes}</p>
                 )}
@@ -296,6 +296,41 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <p className="text-xs text-muted-foreground">No activity this month</p>
                   </div>
+                )}
+
+                {(timelineMap.get(a.id)?.length ?? 0) > 0 && (
+                  <details className="group mt-3 pt-3 border-t border-border/50">
+                    <summary className="flex cursor-pointer items-center gap-1.5 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                      <span>Recent activity</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground/60 group-open:text-foreground/60">
+                        {timelineMap.get(a.id)!.length} {timelineMap.get(a.id)!.length === 1 ? "entry" : "entries"}
+                      </span>
+                    </summary>
+                    <div className="mt-2 space-y-1">
+                      {timelineMap.get(a.id)!.map((entry) => {
+                        const isOutgoingTransfer = entry.type === "transfer" && entry.fromAccount === a.name;
+                        const isIncomingTransfer = entry.type === "transfer" && entry.toAccount === a.name;
+                        const sign = entry.type === "income" || isIncomingTransfer ? "+" : entry.type === "expense" || isOutgoingTransfer ? "−" : "";
+                        const color = entry.type === "income" || isIncomingTransfer ? "text-success" : "text-destructive";
+                        return (
+                          <div key={entry.id} className="flex items-center justify-between py-1 first:pt-0 last:pb-0">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <span className="text-[10px] text-muted-foreground/60 shrink-0 w-16 tabular-nums">
+                                {new Date(entry.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              </span>
+                              <span className="text-xs truncate">{entry.description}</span>
+                              {entry.relatedAccount && (
+                                <span className="text-[10px] text-muted-foreground/50 truncate">→ {entry.relatedAccount}</span>
+                              )}
+                            </div>
+                            <span className={`text-xs font-medium tabular-nums shrink-0 ml-2 ${color}`}>
+                              {sign}{formatNaira(entry.amount)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 )}
               </motion.div>
             );
@@ -348,21 +383,14 @@ export function AccountsView({ filterType }: { filterType?: AccountType | Accoun
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteConfirm !== null} onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Account</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>?
-              This action cannot be undone. All transactions linked to this account will remain.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}
+        title="Delete Account"
+        description={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone. All transactions linked to this account will remain.`}
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
     </>
   );
 }

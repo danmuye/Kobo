@@ -14,6 +14,7 @@ export interface AppNotification {
   read: boolean;
   actionUrl?: string;
   relatedId?: string;
+  eventFingerprint?: string;
 }
 
 export type NotificationPreferenceKey =

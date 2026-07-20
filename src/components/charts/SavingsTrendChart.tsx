@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Area, AreaChart } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
@@ -9,7 +10,7 @@ interface SavingsTrendChartProps {
   showArea?: boolean;
 }
 
-export function SavingsTrendChart({ data, height = 256, showArea = true }: SavingsTrendChartProps) {
+export const SavingsTrendChart = memo(function SavingsTrendChart({ data, height = 256, showArea = true }: SavingsTrendChartProps) {
   if (showArea) {
     return (
       <div style={{ height }}>
@@ -45,4 +46,4 @@ export function SavingsTrendChart({ data, height = 256, showArea = true }: Savin
       </ResponsiveContainer>
     </div>
   );
-}
+});

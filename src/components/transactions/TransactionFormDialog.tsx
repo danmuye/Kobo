@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Paperclip, ReceiptText, Tag, Wallet, Clock } from "lucide-react";
+import { Paperclip, Tag, Wallet, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { RHFInput, RHFSelect, RHFTextArea } from "@/features/forms/fields";
 import { transactionSchema, type TransactionFormValues, toTransactionPayload } from "@/features/forms/schemas";
-import { notify } from "@/services/notifications";
+import { notify, emitFinancialEvent } from "@/services/notifications";
 import { useFinanceStore, validateTransfer } from "@/store/finance";
 import { getBudgetCategories, calculateBudgetMetrics } from "@/services/budget-matching";
 import { formatNaira } from "@/lib/format";
 import { useTransactionModal } from "@/store/transaction-modal";
 import { getFinanceService } from "@/services/service-provider";
+import { ReceiptUploader } from "./ReceiptUploader";
 
 const categories = [
   "Food & Dining", "Transportation", "Rent", "Utilities", "Entertainment",
@@ -265,7 +266,7 @@ export function TransactionFormDialog() {
           await svc.transactions.update(editingTransaction.id, { goalContributionId: contribution.id });
         }
 
-        notify.success("Transaction updated", "", "transaction");
+        emitFinancialEvent("transaction:updated", editingTransaction.id, undefined, undefined, { description: values.description });
       } else {
         const created = await svc.transactions.create(payload);
         saveLastUsed({ type: values.type, category: values.category, account: values.account, tags: values.tags });
@@ -285,11 +286,11 @@ export function TransactionFormDialog() {
           await svc.transactions.update(created.id, { goalContributionId: contribution.id });
         }
 
-        notify.success("Transaction added", "", "transaction");
+        emitFinancialEvent("transaction:created", created.id, undefined, values.amount, { description: values.description, category: values.category });
       }
       close();
-    } catch {
-      notify.error("Failed to save transaction", "Please try again.", "transaction");
+    } catch (err) {
+      emitFinancialEvent("system:error", "transaction-save", undefined, undefined, { detail: err instanceof Error ? err.message : "Failed to save transaction" });
     } finally {
       setIsSubmitting(false);
     }
@@ -365,7 +366,7 @@ export function TransactionFormDialog() {
                     <span className="text-[11px] text-muted-foreground self-center">Recent:</span>
                     {recentCategories.map((cat) => (
                       <button key={cat} type="button" onClick={() => form.setValue("category", cat)}
-                        className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted transition">{cat}</button>
+                        className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{cat}</button>
                     ))}
                   </div>
                 )}
@@ -378,8 +379,9 @@ export function TransactionFormDialog() {
                   </div>
                   {allDebts.length > 0 && (
                     <div className="rounded-lg border border-border/70 p-3 space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer">
+                      <label className="flex items-center gap-2 cursor-pointer" htmlFor="transfer-debt-checkbox">
                         <input
+                          id="transfer-debt-checkbox"
                           type="checkbox"
                           checked={isDebtPayment}
                           onChange={(e) => {
@@ -392,20 +394,21 @@ export function TransactionFormDialog() {
                               form.setValue("debtId", "");
                             }
                           }}
-                          className="h-4 w-4 rounded border-border"
+                          className="h-4 w-4 rounded border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         />
                         <span className="text-sm font-medium">Apply Transfer to Debt</span>
                       </label>
                       {isDebtPayment && (
                         <div>
-                          <label className="text-xs font-medium text-muted-foreground">Select Debt</label>
+                          <label htmlFor="transfer-debt-select" className="text-xs font-medium text-muted-foreground">Select Debt</label>
                           <select
+                            id="transfer-debt-select"
                             value={selectedDebtId}
                             onChange={(e) => {
                               setSelectedDebtId(e.target.value);
                               form.setValue("debtId", e.target.value);
                             }}
-                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1.5"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1.5"
                           >
                             {allDebts.map((d) => (
                               <option key={d.id} value={d.id}>{d.name}</option>
@@ -424,7 +427,7 @@ export function TransactionFormDialog() {
                     <div className="flex flex-wrap gap-1">
                       {recentAccounts.map((acct) => (
                         <button key={acct} type="button" onClick={() => form.setValue("account", acct)}
-                          className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted transition">{acct}</button>
+                          className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{acct}</button>
                       ))}
                     </div>
                   </div>
@@ -433,7 +436,7 @@ export function TransactionFormDialog() {
                       <Wallet className="h-3 w-3 text-muted-foreground self-center" />
                       {recentWallets.map((w) => (
                         <button key={w} type="button" onClick={() => form.setValue("account", w)}
-                          className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted transition">{w}</button>
+                          className="rounded-full border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{w}</button>
                       ))}
                     </div>
                   )}
@@ -459,8 +462,9 @@ export function TransactionFormDialog() {
 
             {selectedType === "expense" && allDebts.length > 0 && (
               <div className="rounded-lg border border-border/70 p-3 space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer" htmlFor="expense-debt-checkbox">
                   <input
+                    id="expense-debt-checkbox"
                     type="checkbox"
                     checked={isDebtPayment}
                     onChange={(e) => {
@@ -473,20 +477,21 @@ export function TransactionFormDialog() {
                         form.setValue("debtId", "");
                       }
                     }}
-                    className="h-4 w-4 rounded border-border"
+                    className="h-4 w-4 rounded border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <span className="text-sm font-medium">Debt Payment</span>
                 </label>
                 {isDebtPayment && (
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground">Select Debt</label>
+                    <label htmlFor="expense-debt-select" className="text-xs font-medium text-muted-foreground">Select Debt</label>
                     <select
+                      id="expense-debt-select"
                       value={selectedDebtId}
                       onChange={(e) => {
                         setSelectedDebtId(e.target.value);
                         form.setValue("debtId", e.target.value);
                       }}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring mt-1.5"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1.5"
                     >
                       {allDebts.map((d) => (
                         <option key={d.id} value={d.id}>{d.name}</option>
@@ -507,18 +512,20 @@ export function TransactionFormDialog() {
                 <div className="flex items-center gap-2 mb-1.5">
                   <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-[11px] font-medium text-muted-foreground">Tags</span>
-                  <div className="flex gap-1 ml-auto">
+                  <div className="flex gap-1 ml-auto" role="group" aria-label="Tag source">
                     <button
                       type="button"
                       onClick={() => setRecentTab("tags")}
-                      className={`text-[10px] px-2 py-0.5 rounded ${recentTab === "tags" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      aria-pressed={recentTab === "tags"}
+                      className={`text-[10px] px-2 py-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${recentTab === "tags" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Recent
                     </button>
                     <button
                       type="button"
                       onClick={() => setRecentTab("categories")}
-                      className={`text-[10px] px-2 py-0.5 rounded ${recentTab === "categories" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                      aria-pressed={recentTab === "categories"}
+                      className={`text-[10px] px-2 py-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${recentTab === "categories" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       Suggestions
                     </button>
@@ -530,7 +537,7 @@ export function TransactionFormDialog() {
                       key={tag}
                       type="button"
                       onClick={() => handleTagSelect(tag)}
-                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs hover:bg-muted transition"
+                      className="rounded-full border border-border/60 px-2.5 py-0.5 text-xs hover:bg-muted transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {tag}
                     </button>
@@ -541,8 +548,9 @@ export function TransactionFormDialog() {
 
             {selectedType === "income" && allGoals.length > 0 && (
               <div className="rounded-lg border border-border/70 p-3 space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className="flex items-center gap-2 cursor-pointer" htmlFor="goal-allocation-checkbox">
                   <input
+                    id="goal-allocation-checkbox"
                     type="checkbox"
                     checked={allocateToGoal}
                     onChange={(e) => {
@@ -551,18 +559,19 @@ export function TransactionFormDialog() {
                         setSelectedGoalId(allGoals[0].id);
                       }
                     }}
-                    className="h-4 w-4 rounded border-border"
+                    className="h-4 w-4 rounded border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   />
                   <span className="text-sm font-medium">Allocate part of this income to a savings goal</span>
                 </label>
                 {allocateToGoal && (
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Goal</label>
+                      <label htmlFor="goal-select" className="text-xs font-medium text-muted-foreground">Goal</label>
                       <select
+                        id="goal-select"
                         value={selectedGoalId}
                         onChange={(e) => setSelectedGoalId(e.target.value)}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {allGoals.map((g) => (
                           <option key={g.id} value={g.id}>{g.name}</option>
@@ -570,14 +579,15 @@ export function TransactionFormDialog() {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Contribution amount</label>
+                      <label htmlFor="contribution-amount" className="text-xs font-medium text-muted-foreground">Contribution amount</label>
                       <input
+                        id="contribution-amount"
                         type="number"
                         min={0}
                         max={form.watch("amount")}
                         value={contributionAmount}
                         onChange={(e) => setContributionAmount(Number(e.target.value))}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
                   </div>
@@ -588,22 +598,16 @@ export function TransactionFormDialog() {
             <RHFTextArea control={form.control} name="notes" label="Notes" placeholder="Add a quick note for this transaction" />
 
             <details className="group rounded-lg border border-border/70 p-3">
-              <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground group-open:text-foreground">
+              <summary className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground group-open:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                 <Paperclip className="h-3.5 w-3.5" />
                 <span>Attachments &amp; receipt</span>
-                <span className="ml-auto text-[10px] opacity-60">future-ready</span>
               </summary>
               <div className="mt-3 space-y-3">
                 <RHFInput control={form.control} name="attachments" label="Attachments" placeholder="invoice.pdf, receipt.jpg" />
-                <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ReceiptText className="h-4 w-4" />
-                    <span>Receipt upload is a placeholder for now.</span>
-                  </div>
-                  <Button type="button" variant="outline" onClick={() => notify.info("Receipt upload", "Will be added in a future update.", "system")}>
-                    <Paperclip className="mr-2 h-4 w-4" /> Upload receipt
-                  </Button>
-                </div>
+                <ReceiptUploader
+                  value={form.watch("receiptUrl")}
+                  onChange={(url) => form.setValue("receiptUrl", url)}
+                />
               </div>
             </details>
 

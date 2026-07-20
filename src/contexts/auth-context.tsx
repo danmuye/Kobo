@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import type { AuthUser } from "@/types/auth";
 import { useAuthStore } from "@/store/auth";
 import { onAuthChange, getCurrentUser } from "@/services/firebase/auth";
@@ -70,13 +70,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isLoading = useAuthStore((s) => s.isLoading);
   const error = useAuthStore((s) => s.error);
 
-  const value: AuthContextValue = {
-    user,
-    isAuthenticated: status === "authenticated",
-    isInitializing: status === "initializing",
-    isLoading,
-    error,
-  };
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      isAuthenticated: status === "authenticated",
+      isInitializing: status === "initializing",
+      isLoading,
+      error,
+    }),
+    [user, status, isLoading, error],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

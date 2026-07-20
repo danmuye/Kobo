@@ -83,7 +83,7 @@ export function getBudgetPeriodRange(budget: Budget, referenceDate: Date): { sta
   }
 }
 
-export function migrateBudget(budget: any): Budget {
+export function migrateBudget(budget: Record<string, unknown>): Budget {
   return {
     ...budget,
     categories: getBudgetCategories(budget),

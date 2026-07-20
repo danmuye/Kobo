@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
@@ -12,7 +13,7 @@ interface DebtBreakdownChartProps {
   height?: number;
 }
 
-export function DebtBreakdownChart({ data, height = 256 }: DebtBreakdownChartProps) {
+export const DebtBreakdownChart = memo(function DebtBreakdownChart({ data, height = 256 }: DebtBreakdownChartProps) {
   if (data.length === 0) return null;
 
   const chartData = data.map((d) => ({
@@ -60,4 +61,4 @@ export function DebtBreakdownChart({ data, height = 256 }: DebtBreakdownChartPro
       </ResponsiveContainer>
     </div>
   );
-}
+});

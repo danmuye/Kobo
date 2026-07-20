@@ -13,9 +13,9 @@ export default function VerifyEmail() {
 
   if (isInitializing) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" role="status" aria-label="Loading" />
+      </main>
     );
   }
 
@@ -43,7 +43,7 @@ export default function VerifyEmail() {
   };
 
   return (
-    <div
+    <main
       className="flex min-h-screen items-center justify-center bg-background p-4"
       style={{
         backgroundImage:
@@ -117,6 +117,6 @@ export default function VerifyEmail() {
           </p>
         </div>
       </motion.div>
-    </div>
+    </main>
   );
 }

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,7 +13,7 @@ interface BaseFieldProps<TFieldValues extends FieldValues, TName extends FieldPa
   placeholder?: string;
 }
 
-export function RHFInput<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
+export const RHFInput = memo(function RHFInput<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
   control,
   name,
   label,
@@ -34,9 +35,9 @@ export function RHFInput<TFieldValues extends FieldValues, TName extends FieldPa
       )}
     />
   );
-}
+});
 
-export function RHFSelect<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
+export const RHFSelect = memo(function RHFSelect<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
   control,
   name,
   label,
@@ -66,9 +67,9 @@ export function RHFSelect<TFieldValues extends FieldValues, TName extends FieldP
       )}
     />
   );
-}
+});
 
-export function RHFTextArea<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
+export const RHFTextArea = memo(function RHFTextArea<TFieldValues extends FieldValues, TName extends FieldPath<TFieldValues>>({
   control,
   name,
   label,
@@ -90,4 +91,4 @@ export function RHFTextArea<TFieldValues extends FieldValues, TName extends Fiel
       )}
     />
   );
-}
+});

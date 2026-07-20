@@ -1,9 +1,10 @@
-import type { IFinanceService, ISettingsService, INotificationService } from "./interfaces";
+import type { IFinanceService, ISettingsService, INotificationService, IStorageService } from "./interfaces";
 import { LocalFinanceService } from "./implementations/localStorage/finance";
 import { LocalSettingsService } from "./implementations/localStorage/settings";
 import { LocalNotificationService } from "./implementations/localStorage/notifications";
 import { initializeFirebase, isConfigured, getMissingConfigKeys } from "./firebase/config";
 import { getFirebaseStatus, onFirebaseStatusChange } from "./firebase/status";
+import { ImgBBStorageService } from "./implementations/imgbb/storage";
 
 export type BackendKind = "localStorage" | "firebase";
 
@@ -12,6 +13,7 @@ let currentBackend: BackendKind = "localStorage";
 let financeService: IFinanceService | null = null;
 let settingsService: ISettingsService | null = null;
 let notificationService: INotificationService | null = null;
+let storageService: IStorageService | null = null;
 
 let currentLocalFinance: LocalFinanceService | null = null;
 let currentLocalSettings: LocalSettingsService | null = null;
@@ -37,6 +39,7 @@ function createLocalServices(): void {
   financeService = fin;
   settingsService = set;
   notificationService = not;
+  storageService = new ImgBBStorageService();
 }
 
 createLocalServices();
@@ -44,15 +47,23 @@ createLocalServices();
 const statusListeners = new Set<(status: FirebaseStatus) => void>();
 
 export function getFinanceService(): IFinanceService {
-  return financeService!;
+  if (!financeService) throw new Error("FinanceService not initialized. Call initializeBackend() first.");
+  return financeService;
 }
 
 export function getSettingsService(): ISettingsService {
-  return settingsService!;
+  if (!settingsService) throw new Error("SettingsService not initialized. Call initializeBackend() first.");
+  return settingsService;
 }
 
 export function getNotificationService(): INotificationService {
-  return notificationService!;
+  if (!notificationService) throw new Error("NotificationService not initialized. Call initializeBackend() first.");
+  return notificationService;
+}
+
+export function getStorageService(): IStorageService {
+  if (!storageService) throw new Error("StorageService not initialized. Call initializeBackend() first.");
+  return storageService;
 }
 
 export function isFirebaseAvailable(): boolean {
@@ -134,6 +145,9 @@ export async function setBackend(
     const { FirebaseNotificationService } = await import(
       "./implementations/firebase/notifications"
     );
+    const { FirebaseStorageService } = await import(
+      "./implementations/firebase-storage/storage"
+    );
 
     currentLocalFinance?.destroy();
     currentLocalSettings?.destroy();
@@ -149,6 +163,7 @@ export async function setBackend(
     financeService = fbFinance;
     settingsService = fbSettings;
     notificationService = fbNotif;
+    storageService = new FirebaseStorageService();
 
     await Promise.all([
       fbFinance.init(),

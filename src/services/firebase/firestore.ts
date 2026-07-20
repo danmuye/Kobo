@@ -1,7 +1,7 @@
 import type { Firestore, QueryConstraint, DocumentData, CollectionReference, DocumentReference } from "firebase/firestore";
 import { getFirestoreDb, isConfigured, initializeFirebase, whenReady } from "./config";
 import { toFirebaseServiceError, type FirebaseErrorCode } from "./errors";
-import { withRetry } from "./retry";
+import { withRetry, addToWriteQueue, removeFromWriteQueue, retryQueuedWrites } from "./retry";
 import { getFirebaseStatus } from "./status";
 import { useAuthStore } from "@/store/auth";
 import { sanitizeFirestoreData } from "./sanitize";
@@ -37,24 +37,36 @@ async function loadFirestore(): Promise<typeof import("firebase/firestore")> {
   return import("firebase/firestore");
 }
 
-export interface FirestoreCollection<T extends { id: string }> {
-  getAll(): Promise<T[]>;
-  getById(id: string): Promise<T | null>;
-  create(data: Omit<T, "id">): Promise<T>;
-  set(id: string, data: T): Promise<void>;
-  update(id: string, data: Partial<T>): Promise<void>;
-  delete(id: string): Promise<void>;
-  query(constraints: QueryConstraint[]): Promise<T[]>;
-  isOffline(): boolean;
+// ── Collection pool: reuse cached collection references ────────────────────
+const collectionPool = new Map<string, Promise<FirestoreCollection<any>>>();
+
+function poolKey(path: string): string {
+  return path;
 }
 
-export async function createCollection<T extends { id: string }>(
+export function clearPool(): void {
+  collectionPool.clear();
+}
+
+// ── Internal collection creation (without pool) ────────────────────────────
+
+async function createCollectionInternal<T extends { id: string }>(
   collectionPath: string,
-  db?: Firestore,
 ): Promise<FirestoreCollection<T>> {
-  const firestore = db ?? (await ensureFirestoreReady());
+  const firestore = await ensureFirestoreReady();
   const fs = await loadFirestore();
   const colRef = fs.collection(firestore, collectionPath) as CollectionReference<T>;
+  return buildCollection<T>(colRef, collectionPath, firestore, fs);
+}
+
+// ── Build collection interface ─────────────────────────────────────────────
+
+function buildCollection<T extends { id: string }>(
+  colRef: CollectionReference<T>,
+  collectionPath: string,
+  firestore: Firestore,
+  fs: typeof import("firebase/firestore"),
+): FirestoreCollection<T> {
 
   async function withErrorHandling<R>(
     fn: () => Promise<R>,
@@ -96,12 +108,16 @@ export async function createCollection<T extends { id: string }>(
     return !getFirebaseStatus().isOnline;
   }
 
-  async function getAll(): Promise<T[]> {
+  async function getAll(selectFields?: string[]): Promise<T[]> {
     return withRetry(
       () => withErrorHandling(async () => {
-        const snap = await fs.getDocs(colRef);
+        let q = colRef;
+        if (selectFields && selectFields.length > 0) {
+          q = fs.query(colRef, ...selectFields.map((f) => fs.select(f as any))) as any;
+        }
+        const snap = await fs.getDocs(q);
         return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as T[];
-      }, { operation: "getAll" }),
+      }, { operation: "getAll", fields: selectFields }),
       { retryableCodes: FIRESTORE_RETRYABLE_CODES },
     );
   }
@@ -118,6 +134,11 @@ export async function createCollection<T extends { id: string }>(
   }
 
   async function create(data: Omit<T, "id">): Promise<T> {
+    if (isOffline()) {
+      addToWriteQueue({ collectionPath, operation: "create", data });
+      const tempId = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+      return { ...data, id: tempId } as T;
+    }
     return withRetry(
       () => withErrorHandling(async () => {
         const sanitized = sanitizeFirestoreData(data);
@@ -134,6 +155,10 @@ export async function createCollection<T extends { id: string }>(
   }
 
   async function set(id: string, data: T): Promise<void> {
+    if (isOffline()) {
+      addToWriteQueue({ collectionPath, operation: "set", docId: id, data });
+      return;
+    }
     return withRetry(
       () => withErrorHandling(async () => {
         const sanitized = sanitizeFirestoreData(data);
@@ -151,6 +176,10 @@ export async function createCollection<T extends { id: string }>(
   }
 
   async function update(id: string, data: Partial<T>): Promise<void> {
+    if (isOffline()) {
+      addToWriteQueue({ collectionPath, operation: "update", docId: id, data });
+      return;
+    }
     return withRetry(
       () => withErrorHandling(async () => {
         const sanitized = sanitizeFirestoreData(data);
@@ -168,6 +197,10 @@ export async function createCollection<T extends { id: string }>(
   }
 
   async function delete_(id: string): Promise<void> {
+    if (isOffline()) {
+      addToWriteQueue({ collectionPath, operation: "delete", docId: id });
+      return;
+    }
     return withRetry(
       () => withErrorHandling(async () => {
         const docRef = fs.doc(firestore, collectionPath, id) as DocumentReference<T>;
@@ -177,21 +210,83 @@ export async function createCollection<T extends { id: string }>(
     );
   }
 
-  async function query_(constraints: QueryConstraint[]): Promise<T[]> {
+  async function query_(constraints: QueryConstraint[], selectFields?: string[]): Promise<T[]> {
     return withRetry(
       () => withErrorHandling(async () => {
-        const q = fs.query(colRef, ...constraints);
+        const allConstraints = [...constraints];
+        if (selectFields && selectFields.length > 0) {
+          allConstraints.push(...selectFields.map((f) => fs.select(f as any)));
+        }
+        const q = fs.query(colRef, ...allConstraints);
         const snap = await fs.getDocs(q);
         return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as T[];
       }, {
         operation: "query",
         constraints: constraints.map((c) => c.toString()),
+        fields: selectFields,
       }),
       { retryableCodes: FIRESTORE_RETRYABLE_CODES },
     );
   }
 
-  return { getAll, getById, create, set, update, delete: delete_, query: query_, isOffline };
+  async function listPage(
+    pageSize: number,
+    cursor?: { field: string; value: unknown; direction?: "asc" | "desc" },
+  ): Promise<{ items: T[]; nextCursor: { field: string; value: unknown } | null }> {
+    return withRetry(
+      () => withErrorHandling(async () => {
+        const constraints: QueryConstraint[] = [fs.limit(pageSize)];
+        if (cursor) {
+          const dir = cursor.direction ?? "asc";
+          constraints.push(fs.orderBy(cursor.field as any, dir));
+          constraints.push(fs.where(cursor.field as any, dir === "asc" ? ">" : "<", cursor.value));
+        }
+        const q = fs.query(colRef, ...constraints);
+        const snap = await fs.getDocs(q);
+        const items = snap.docs.map((d) => ({ ...d.data(), id: d.id })) as T[];
+        const last = snap.docs[snap.docs.length - 1];
+        const nextCursor = last && items.length === pageSize
+          ? { field: cursor?.field ?? "id", value: last.get(cursor?.field ?? "id") }
+          : null;
+        return { items, nextCursor };
+      }, { operation: "listPage", pageSize, cursor }),
+      { retryableCodes: FIRESTORE_RETRYABLE_CODES },
+    );
+  }
+
+  return { getAll, getById, create, set, update, delete: delete_, query: query_, listPage, isOffline };
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+export interface FirestoreCollection<T extends { id: string }> {
+  getAll(selectFields?: string[]): Promise<T[]>;
+  getById(id: string): Promise<T | null>;
+  create(data: Omit<T, "id">): Promise<T>;
+  set(id: string, data: T): Promise<void>;
+  update(id: string, data: Partial<T>): Promise<void>;
+  delete(id: string): Promise<void>;
+  query(constraints: QueryConstraint[], selectFields?: string[]): Promise<T[]>;
+  listPage(
+    pageSize: number,
+    cursor?: { field: string; value: unknown; direction?: "asc" | "desc" },
+  ): Promise<{ items: T[]; nextCursor: { field: string; value: unknown } | null }>;
+  isOffline(): boolean;
+}
+
+export { createCollectionInternal, poolKey, collectionPool, ensureFirestoreReady, loadFirestore };
+
+export async function createCollection<T extends { id: string }>(
+  collectionPath: string,
+  db?: Firestore,
+): Promise<FirestoreCollection<T>> {
+  const key = poolKey(collectionPath);
+  const cached = collectionPool.get(key);
+  if (cached) return cached as Promise<FirestoreCollection<T>>;
+
+  const promise = createCollectionInternal<T>(collectionPath);
+  collectionPool.set(key, promise);
+  return promise;
 }
 
 export { type QueryConstraint };

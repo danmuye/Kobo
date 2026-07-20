@@ -1,6 +1,11 @@
 import { toast } from "sonner";
 import { getNotificationService } from "@/services/service-provider";
 import type { NotificationType, NotificationCategory } from "@/types/notifications";
+import { useNotificationStore } from "@/store/notifications";
+import { NotificationEngine } from "@/services/notification-engine/engine";
+import type { FinancialEventType } from "@/services/notification-engine/types";
+
+const engine = NotificationEngine.getInstance();
 
 const TOAST_FN: Record<NotificationType, typeof toast.success> = {
   success: toast.success,
@@ -30,7 +35,7 @@ const _notify = async (
   category: NotificationCategory = "system",
   options?: NotifyOptions,
 ): Promise<string> => {
-  const notificationData: Omit<AppNotification, "id" | "timestamp" | "read"> = {
+  const notificationData: Omit<AppNotification, "id" | "timestamp" | "read"> & { eventFingerprint?: string } = {
     title,
     message,
     type,
@@ -39,7 +44,15 @@ const _notify = async (
   if (options?.actionUrl !== undefined) notificationData.actionUrl = options.actionUrl;
   if (options?.relatedId !== undefined) notificationData.relatedId = options.relatedId;
 
-  const id = await getNotificationService().add(notificationData);
+  const service = getNotificationService();
+  const state = useNotificationStore.getState();
+
+  notificationData.eventFingerprint = `legacy::${category}::${title}::${options?.relatedId ?? ""}`;
+
+  const existing = state.notifications.find((n) => n.eventFingerprint === notificationData.eventFingerprint);
+  if (existing) return existing.id;
+
+  const id = await service.add(notificationData);
 
   TOAST_FN[type](message || title, {
     description: message ? title : undefined,
@@ -62,3 +75,20 @@ notify.warning = async (title, message, category, options) =>
 
 notify.info = async (title, message, category, options) =>
   _notify(title, message, "info", category ?? "system", options);
+
+export function emitFinancialEvent(
+  type: FinancialEventType,
+  entityId: string,
+  entityName?: string,
+  amount?: number,
+  metadata?: Record<string, string | number | boolean | null | undefined>,
+): string | null {
+  return engine.emit({
+    type,
+    timestamp: new Date().toISOString(),
+    entityId,
+    entityName,
+    amount,
+    metadata,
+  });
+}

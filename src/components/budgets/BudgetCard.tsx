@@ -204,7 +204,7 @@ export function BudgetCard({ budget, metrics, onView, onEdit, onDelete }: Budget
 
         <button
           onClick={() => setShowInsights((v) => !v)}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/70 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/70 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={showInsights}
           aria-label={showInsights ? "Hide insights" : "Show insights"}
         >

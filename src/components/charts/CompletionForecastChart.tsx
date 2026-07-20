@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
@@ -8,7 +9,7 @@ interface CompletionForecastChartProps {
   height?: number;
 }
 
-export function CompletionForecastChart({ data, height = 200 }: CompletionForecastChartProps) {
+export const CompletionForecastChart = memo(function CompletionForecastChart({ data, height = 200 }: CompletionForecastChartProps) {
   const chartData = data.map((g) => ({
     name: g.goalName.length > 12 ? g.goalName.slice(0, 12) + "..." : g.goalName,
     saved: g.saved,
@@ -40,4 +41,4 @@ export function CompletionForecastChart({ data, height = 200 }: CompletionForeca
       </ResponsiveContainer>
     </div>
   );
-}
+});

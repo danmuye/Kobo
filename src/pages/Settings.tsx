@@ -277,10 +277,10 @@ export default function Settings() {
       <div className="grid gap-4 md:grid-cols-2">
         {/* ── Profile ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-profile">
-          <h3 id="settings-profile" className="font-display font-semibold flex items-center gap-2">
+          <h2 id="settings-profile" className="font-display font-semibold flex items-center gap-2">
             <User className="h-4 w-4" aria-hidden />
             Profile
-          </h3>
+          </h2>
           <div>
             <Label htmlFor="fullName">Full name</Label>
             <Input
@@ -316,7 +316,7 @@ export default function Settings() {
 
         {/* ── Appearance ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-appearance">
-          <h3 id="settings-appearance" className="font-display font-semibold">Appearance</h3>
+          <h2 id="settings-appearance" className="font-display font-semibold">Appearance</h2>
           <p className="text-xs text-muted-foreground -mt-2">
             Choose your theme. System follows your device preference.
           </p>
@@ -342,16 +342,16 @@ export default function Settings() {
 
         {/* ── Security ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-security">
-          <h3 id="settings-security" className="font-display font-semibold flex items-center gap-2">
+          <h2 id="settings-security" className="font-display font-semibold flex items-center gap-2">
             <ShieldAlert className="h-4 w-4" aria-hidden />
             Security
-          </h3>
+          </h2>
 
           {/* Change password */}
           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden />
-              <h4 className="font-medium text-sm">Change password</h4>
+              <h3 className="font-medium text-sm">Change password</h3>
             </div>
             <div className="space-y-2">
               <div>
@@ -362,6 +362,8 @@ export default function Settings() {
                   value={pwCurrent}
                   onChange={(e) => setPwCurrent(e.target.value)}
                   autoComplete="current-password"
+                  aria-invalid={!!pwError}
+                  aria-describedby={pwError ? "pw-error" : undefined}
                 />
               </div>
               <div>
@@ -373,6 +375,8 @@ export default function Settings() {
                   onChange={(e) => setPwNew(e.target.value)}
                   placeholder="At least 8 characters"
                   autoComplete="new-password"
+                  aria-invalid={!!pwError}
+                  aria-describedby={pwError ? "pw-error" : undefined}
                 />
               </div>
               <div>
@@ -383,10 +387,12 @@ export default function Settings() {
                   value={pwConfirm}
                   onChange={(e) => setPwConfirm(e.target.value)}
                   autoComplete="new-password"
+                  aria-invalid={!!pwError}
+                  aria-describedby={pwError ? "pw-error" : undefined}
                 />
               </div>
               {pwError && (
-                <p className="text-xs text-destructive" role="alert">{pwError}</p>
+                <p id="pw-error" className="text-xs text-destructive" role="alert">{pwError}</p>
               )}
               <Button
                 onClick={handleChangePassword}
@@ -406,7 +412,7 @@ export default function Settings() {
           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
             <div className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-muted-foreground" aria-hidden />
-              <h4 className="font-medium text-sm">Change email</h4>
+              <h3 className="font-medium text-sm">Change email</h3>
             </div>
             <p className="text-xs text-muted-foreground">
               A verification will be sent to your new email address before the change takes effect.
@@ -421,6 +427,8 @@ export default function Settings() {
                   onChange={(e) => setEmailNew(e.target.value)}
                   placeholder="new@example.com"
                   autoComplete="email"
+                  aria-invalid={!!emailError}
+                  aria-describedby={emailError ? "email-error-msg" : undefined}
                 />
               </div>
               <div>
@@ -431,10 +439,12 @@ export default function Settings() {
                   value={emailPassword}
                   onChange={(e) => setEmailPassword(e.target.value)}
                   autoComplete="current-password"
+                  aria-invalid={!!emailError}
+                  aria-describedby={emailError ? "email-error-msg" : undefined}
                 />
               </div>
               {emailError && (
-                <p className="text-xs text-destructive" role="alert">{emailError}</p>
+                <p id="email-error-msg" className="text-xs text-destructive" role="alert">{emailError}</p>
               )}
               <Button
                 onClick={handleChangeEmail}
@@ -478,9 +488,11 @@ export default function Settings() {
                   onChange={(e) => setDeletePassword(e.target.value)}
                   autoComplete="current-password"
                   placeholder="Your password"
+                  aria-invalid={!!deleteError}
+                  aria-describedby={deleteError ? "delete-error-msg" : undefined}
                 />
                 {deleteError && (
-                  <p className="text-xs text-destructive" role="alert">{deleteError}</p>
+                  <p id="delete-error-msg" className="text-xs text-destructive" role="alert">{deleteError}</p>
                 )}
               </div>
               <AlertDialogFooter>
@@ -505,10 +517,10 @@ export default function Settings() {
 
         {/* ── Sign Out ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-signout">
-          <h3 id="settings-signout" className="font-display font-semibold flex items-center gap-2">
+          <h2 id="settings-signout" className="font-display font-semibold flex items-center gap-2">
             <LogOut className="h-4 w-4" aria-hidden />
             Sign Out
-          </h3>
+          </h2>
           <p className="text-xs text-muted-foreground -mt-2">
             End your current session and return to the login screen.
           </p>
@@ -545,7 +557,7 @@ export default function Settings() {
 
         {/* ── Localization ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4 md:col-span-2" aria-labelledby="settings-localization">
-          <h3 id="settings-localization" className="font-display font-semibold">Localization</h3>
+          <h2 id="settings-localization" className="font-display font-semibold">Localization</h2>
           <p className="text-xs text-muted-foreground -mt-2">
             Control how currency, dates, numbers, and times are displayed.
           </p>
@@ -634,7 +646,7 @@ export default function Settings() {
 
         {/* ── Notifications ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-notifications">
-          <h3 id="settings-notifications" className="font-display font-semibold">Notifications</h3>
+          <h2 id="settings-notifications" className="font-display font-semibold">Notifications</h2>
           <p className="text-xs text-muted-foreground -mt-2">
             Choose which notifications you want to see. Changes take effect immediately.
           </p>
@@ -660,7 +672,7 @@ export default function Settings() {
 
         {/* ── Backup & Restore ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4" aria-labelledby="settings-backup">
-          <h3 id="settings-backup" className="font-display font-semibold">Backup &amp; Restore</h3>
+          <h2 id="settings-backup" className="font-display font-semibold">Backup &amp; Restore</h2>
           <p className="text-xs text-muted-foreground -mt-2">
             Export your data as a JSON file or import a previously saved backup.
           </p>
@@ -683,7 +695,7 @@ export default function Settings() {
 
         {/* ── Data Management ── */}
         <section className="rounded-xl border bg-card p-5 shadow-elegant space-y-4 md:col-span-2" aria-labelledby="settings-data">
-          <h3 id="settings-data" className="font-display font-semibold">Data Management</h3>
+          <h2 id="settings-data" className="font-display font-semibold">Data Management</h2>
           <p className="text-sm text-muted-foreground">
             Manage your application data. These actions cannot be undone.
           </p>

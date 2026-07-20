@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 import { ChartTooltip } from "./ChartTooltip";
 import { formatNaira } from "@/lib/format";
@@ -13,7 +14,7 @@ interface AccountBalancesChartProps {
   height?: number;
 }
 
-export function AccountBalancesChart({ data, height = 256 }: AccountBalancesChartProps) {
+export const AccountBalancesChart = memo(function AccountBalancesChart({ data, height = 256 }: AccountBalancesChartProps) {
   const sorted = [...data].sort((a, b) => b.balance - a.balance);
 
   return (
@@ -61,4 +62,4 @@ export function AccountBalancesChart({ data, height = 256 }: AccountBalancesChar
       </ResponsiveContainer>
     </div>
   );
-}
+});

@@ -260,7 +260,8 @@ export default function Reports() {
             <div className="flex items-center gap-1 rounded-lg border border-border p-1 bg-muted/30" role="group" aria-label="Date range">
               {RANGE_OPTIONS.map((opt) => (
                 <button key={opt.value} type="button" onClick={() => setRangePreset(opt.value)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${preset === opt.value ? "bg-background shadow-sm" : "text-muted-foreground"}`}>
+                  aria-pressed={preset === opt.value}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${preset === opt.value ? "bg-background shadow-sm" : "text-muted-foreground"}`}>
                   {opt.label}
                 </button>
               ))}
@@ -268,10 +269,10 @@ export default function Reports() {
             {preset === "custom" && (
               <div className="flex items-center gap-2">
                 <input type="date" value={customStart ?? ""} onChange={(e) => setCustomRange(e.target.value, customEnd ?? e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs w-auto max-w-[140px]" aria-label="Start date" />
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs w-auto max-w-[140px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Start date" />
                 <span className="text-xs text-muted-foreground">to</span>
                 <input type="date" value={customEnd ?? ""} onChange={(e) => setCustomRange(customStart ?? e.target.value, e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs w-auto max-w-[140px]" aria-label="End date" />
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs w-auto max-w-[140px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="End date" />
               </div>
             )}
           </div>
@@ -344,15 +345,15 @@ export default function Reports() {
 
           <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 bg-muted/20" role="group" aria-label="Export options">
             <button type="button" onClick={() => { exportReport("csv"); notify.success("CSV exported", "", "export"); }}
-              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground" aria-label="Export CSV">
+              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Export CSV">
               <Table2 className="h-3.5 w-3.5" />
             </button>
             <button type="button" onClick={() => { exportReport("excel"); notify.success("Excel exported", "", "export"); }}
-              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground" aria-label="Export Excel">
+              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Export Excel">
               <BarChart3 className="h-3.5 w-3.5" />
             </button>
             <button type="button" onClick={() => { exportReport("pdf"); notify.success("PDF report opened", "", "export"); }}
-              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground" aria-label="Export PDF">
+              className="p-1.5 rounded-md hover:bg-muted/50 transition text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Export PDF">
               <FileText className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -552,7 +553,7 @@ export default function Reports() {
 
       {/* ── Charts Grid ── */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <ChartCard title="Income vs Expenses" subtitle="Monthly comparison" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No transactions in this period.">
+        <ChartCard title="Income vs Expenses" subtitle="Monthly comparison" headingLevel="h2" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No transactions in this period.">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={report.monthlyChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -566,7 +567,7 @@ export default function Reports() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Monthly Spending Trend" subtitle="Expenses over time" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No expenses in this period.">
+        <ChartCard title="Monthly Spending Trend" subtitle="Expenses over time" headingLevel="h2" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No expenses in this period.">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={report.monthlyChart}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -579,7 +580,7 @@ export default function Reports() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Cash Flow" subtitle="Net income each month" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No transactions in this period.">
+        <ChartCard title="Cash Flow" subtitle="Net income each month" headingLevel="h2" loading={!mounted} empty={report.monthlyChart.length === 0} emptyMessage="No transactions in this period.">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={report.monthlyChart}>
               <defs>
@@ -598,7 +599,7 @@ export default function Reports() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Budget Performance" subtitle="Spent vs budgeted amount" loading={!mounted} empty={budgetChartData.length === 0} emptyMessage="No budgets configured.">
+        <ChartCard title="Budget Performance" subtitle="Spent vs budgeted amount" headingLevel="h2" loading={!mounted} empty={budgetChartData.length === 0} emptyMessage="No budgets configured.">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={budgetChartData} layout="vertical" barSize={16}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
@@ -612,19 +613,19 @@ export default function Reports() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Savings Growth" subtitle="Goal contributions over time" loading={!mounted} empty={report.savingsGrowth.monthly.length === 0} emptyMessage="No savings contributions yet.">
+        <ChartCard title="Savings Growth" subtitle="Goal contributions over time" headingLevel="h2" loading={!mounted} empty={report.savingsGrowth.monthly.length === 0} emptyMessage="No savings contributions yet.">
           <SavingsTrendChart data={report.savingsGrowth.monthly} height={256} showArea />
         </ChartCard>
 
-        <ChartCard title="Debt Breakdown" subtitle="Remaining balance by lender" loading={!mounted} empty={debtChartData.length === 0} emptyMessage="No debts recorded.">
+        <ChartCard title="Debt Breakdown" subtitle="Remaining balance by lender" headingLevel="h2" loading={!mounted} empty={debtChartData.length === 0} emptyMessage="No debts recorded.">
           <DebtBreakdownChart data={debtChartData} height={256} />
         </ChartCard>
 
-        <ChartCard title="Spending by Category" subtitle="Where your money goes" loading={!mounted} empty={report.categoryBreakdown.length === 0} emptyMessage="No expenses in this period.">
+        <ChartCard title="Spending by Category" subtitle="Where your money goes" headingLevel="h2" loading={!mounted} empty={report.categoryBreakdown.length === 0} emptyMessage="No expenses in this period.">
           <CategoryChart data={report.categoryBreakdown} height={256} />
         </ChartCard>
 
-        <ChartCard title="Account Balances" subtitle="Balance per account" loading={!mounted} empty={accountChartData.length === 0} emptyMessage="No accounts created.">
+        <ChartCard title="Account Balances" subtitle="Balance per account" headingLevel="h2" loading={!mounted} empty={accountChartData.length === 0} emptyMessage="No accounts created.">
           <AccountBalancesChart data={accountChartData} height={256} />
         </ChartCard>
       </div>
@@ -676,7 +677,7 @@ export default function Reports() {
       <div className="rounded-xl border bg-card p-5 shadow-elegant">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-display font-semibold">Goal Completion Forecast</h3>
+            <h2 className="font-display font-semibold">Goal Completion Forecast</h2>
             <p className="text-xs text-muted-foreground">Projected completion for each goal based on current saving rate</p>
           </div>
           <div className="text-right">
@@ -727,7 +728,7 @@ export default function Reports() {
         <div className="rounded-xl border bg-card p-5 shadow-elegant">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-display font-semibold">Projected Completion Timeline</h3>
+              <h2 className="font-display font-semibold">Projected Completion Timeline</h2>
               <p className="text-xs text-muted-foreground">Forecast based on current savings rate</p>
             </div>
             <div className="text-right">
@@ -764,7 +765,7 @@ export default function Reports() {
       {/* ── Savings Goals Progress ── */}
       {goalsWithMetrics.length > 0 && (
         <section className="rounded-xl border bg-card p-5 shadow-elegant">
-          <h3 className="font-display font-semibold mb-4">Savings Goals Progress</h3>
+          <h2 className="font-display font-semibold mb-4">Savings Goals Progress</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {goalsWithMetrics.map((g) => {
               const m = g.metrics;
@@ -805,7 +806,7 @@ export default function Reports() {
       {/* ── Budget Utilization ── */}
       {budgets.length > 0 && (
         <section className="rounded-xl border bg-card p-5 shadow-elegant">
-          <h3 className="font-display font-semibold mb-1">Budget Utilization</h3>
+          <h2 className="font-display font-semibold mb-1">Budget Utilization</h2>
           <p className="text-xs text-muted-foreground mb-4">
             {formatNaira(report.budgetUtilization.totalSpent)} / {formatNaira(report.budgetUtilization.totalBudgeted)} ({formatPercent(report.budgetUtilization.utilization)})
           </p>

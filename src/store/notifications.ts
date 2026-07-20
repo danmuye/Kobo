@@ -10,7 +10,7 @@ const generateId = () => Math.random().toString(36).slice(2, 10);
 interface NotificationState {
   notifications: AppNotification[];
   preferences: NotificationPreferences;
-  addNotification: (n: Omit<AppNotification, "id" | "timestamp" | "read">) => string;
+  addNotification: (n: Omit<AppNotification, "id" | "timestamp" | "read"> & { eventFingerprint?: string }) => string;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   removeNotification: (id: string) => void;

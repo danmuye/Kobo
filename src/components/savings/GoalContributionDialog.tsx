@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useFinanceStore } from "@/store/finance";
 import { computeAccountBalance } from "@/services/account-balance";
-import { notify } from "@/services/notifications";
+import { emitFinancialEvent } from "@/services/notifications";
 import { formatNaira } from "@/lib/format";
 import type { Goal } from "@/types";
 
@@ -74,11 +74,11 @@ export function GoalContributionDialog({ goal, open, onOpenChange }: GoalContrib
         goalId: goal.id,
       });
 
-      notify.success("Contribution added", `${formatNaira(amountNum)} contributed to ${goal.name}`, "goal");
+      emitFinancialEvent("goal:contribution", goal.id, goal.name, amountNum);
       onOpenChange(false);
       reset();
     } catch {
-      notify.error("Failed to add contribution", "Please try again.", "goal");
+      emitFinancialEvent("system:error", "goal-contribution", undefined, undefined, { detail: "Failed to add contribution" });
     } finally {
       setSubmitting(false);
     }

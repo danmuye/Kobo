@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { CalendarClock, TrendingUp, AlertTriangle, Wallet, PiggyBank, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,7 +61,7 @@ function InsightCard({
   );
 }
 
-export function BudgetInsightsPanel({ budget, transactions, compact = false }: BudgetInsightsPanelProps) {
+export const BudgetInsightsPanel = memo(function BudgetInsightsPanel({ budget, transactions, compact = false }: BudgetInsightsPanelProps) {
   const insights = getBudgetInsights(budget, transactions);
   const ats = getBudgetAvailableToSpend(budget, transactions);
   const status = getBudgetStatus(
@@ -146,4 +147,4 @@ export function BudgetInsightsPanel({ budget, transactions, compact = false }: B
       )}
     </div>
   );
-}
+});

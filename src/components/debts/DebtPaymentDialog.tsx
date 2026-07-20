@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useFinanceStore } from "@/store/finance";
 import { computeAccountBalance } from "@/services/account-balance";
-import { notify } from "@/services/notifications";
+import { emitFinancialEvent } from "@/services/notifications";
 import { formatNaira } from "@/lib/format";
 import type { Debt } from "@/types";
 
@@ -74,11 +74,11 @@ export function DebtPaymentDialog({ debt, open, onOpenChange }: DebtPaymentDialo
         debtId: debt.id,
       });
 
-      notify.success("Payment recorded", `${formatNaira(amountNum)} paid toward ${debt.name}`, "debt");
+      emitFinancialEvent("debt:payment", debt.id, debt.name, amountNum);
       onOpenChange(false);
       reset();
     } catch {
-      notify.error("Failed to record payment", "Please try again.", "debt");
+      emitFinancialEvent("system:error", "debt-payment", undefined, undefined, { detail: "Failed to record payment" });
     } finally {
       setSubmitting(false);
     }

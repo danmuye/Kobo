@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, MoreVertical, Edit3, Trash2, Eye, BarChart3, Sparkles, Heart, Calendar, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -53,20 +54,25 @@ function ProgressBar({ pct, status }: { pct: number; status: DebtStatusInfo }) {
   );
 }
 
-export function DebtCard({ debt, onEdit, onDelete, onMakePayment, onViewTransactions, onViewAnalytics }: DebtCardProps) {
+export const DebtCard = memo(function DebtCard({ debt, onEdit, onDelete, onMakePayment, onViewTransactions, onViewAnalytics }: DebtCardProps) {
   const { metrics } = debt;
   const statusInfo: DebtStatusInfo = getDebtStatus(metrics.percentagePaid, metrics.isPaidOff, metrics.isOverdue);
   const { label, value } = statusInfo;
 
   const toneBgClass = debtStatusToneBg[value] ?? "bg-muted text-muted-foreground";
-  const insights = calculateDebtInsights(debt, []);
+  const insights = useMemo(() => calculateDebtInsights(debt, []), [debt]);
 
-  const payoffEstimate = insights.estimatedPayoffDate && !metrics.isPaidOff
-    ? new Date(insights.estimatedPayoffDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-    : null;
+  const payoffEstimate = useMemo(
+    () => insights.estimatedPayoffDate && !metrics.isPaidOff
+      ? new Date(insights.estimatedPayoffDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      : null,
+    [insights.estimatedPayoffDate, metrics.isPaidOff],
+  );
 
-  const healthColor = insights.debtHealthScore >= 70 ? "text-success" : insights.debtHealthScore >= 40 ? "text-amber-500" : "text-destructive";
-  const healthFill = insights.debtHealthScore;
+  const healthColor = useMemo(
+    () => insights.debtHealthScore >= 70 ? "text-success" : insights.debtHealthScore >= 40 ? "text-amber-500" : "text-destructive",
+    [insights.debtHealthScore],
+  );
 
   return (
     <motion.div
@@ -114,7 +120,7 @@ export function DebtCard({ debt, onEdit, onDelete, onMakePayment, onViewTransact
               </Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Debt actions">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Debt actions">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -242,4 +248,4 @@ export function DebtCard({ debt, onEdit, onDelete, onMakePayment, onViewTransact
       </div>
     </motion.div>
   );
-}
+});

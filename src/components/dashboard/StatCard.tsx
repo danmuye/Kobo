@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react";
@@ -21,7 +22,7 @@ const variantMap = {
   goals: { bg: "gradient-goals", stroke: "hsl(280 75% 65%)" },
 };
 
-export function StatCard({ label, value, delta, icon: Icon, variant, data }: Props) {
+export const StatCard = memo(function StatCard({ label, value, delta, icon: Icon, variant, data }: Props) {
   const v = variantMap[variant];
   const positive = delta >= 0;
   const chartData = data.map((y, x) => ({ x, y }));
@@ -82,4 +83,4 @@ export function StatCard({ label, value, delta, icon: Icon, variant, data }: Pro
       </div>
     </motion.div>
   );
-}
+});

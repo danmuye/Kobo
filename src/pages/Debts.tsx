@@ -197,7 +197,7 @@ export default function Debts() {
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-muted mb-4">
             <CreditCard className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="font-display font-semibold text-lg">No debts tracked</h3>
+          <h2 className="font-display font-semibold text-lg">No debts tracked</h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-md">
             Add a debt to start tracking repayment progress automatically from your transactions.
           </p>
@@ -218,7 +218,7 @@ export default function Debts() {
             {activeDebts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Sparkles className="h-8 w-8 text-success mb-2" />
-                <h3 className="font-display font-semibold text-lg">All debts paid off!</h3>
+                <h2 className="font-display font-semibold text-lg">All debts paid off!</h2>
                 <p className="text-sm text-muted-foreground mt-1">Celebrate your debt-free journey.</p>
               </div>
             ) : (
@@ -242,7 +242,7 @@ export default function Debts() {
             {paidOffDebts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Archive className="h-8 w-8 text-muted-foreground mb-2" />
-                <h3 className="font-display font-semibold text-lg">No paid-off debts yet</h3>
+                <h2 className="font-display font-semibold text-lg">No paid-off debts yet</h2>
                 <p className="text-sm text-muted-foreground mt-1">Keep making payments — your progress will show here.</p>
               </div>
             ) : (

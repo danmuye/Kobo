@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { PiggyBank, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ interface EmptyBudgetStateProps {
   onCreateNew: () => void;
 }
 
-export function EmptyBudgetState({ onCreateNew }: EmptyBudgetStateProps) {
+export const EmptyBudgetState = memo(function EmptyBudgetState({ onCreateNew }: EmptyBudgetStateProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -19,7 +20,7 @@ export function EmptyBudgetState({ onCreateNew }: EmptyBudgetStateProps) {
       <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 mb-4">
         <PiggyBank className="h-8 w-8 text-primary" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground">No budgets yet</h3>
+      <h2 className="text-lg font-semibold text-foreground">No budgets yet</h2>
       <p className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
         Create your first budget to start tracking your spending and reaching your financial goals.
       </p>
@@ -28,4 +29,4 @@ export function EmptyBudgetState({ onCreateNew }: EmptyBudgetStateProps) {
       </Button>
     </motion.div>
   );
-}
+});

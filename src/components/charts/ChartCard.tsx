@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -12,9 +13,10 @@ interface ChartCardProps {
   children?: React.ReactNode;
   className?: string;
   chartHeight?: string;
+  headingLevel?: "h2" | "h3";
 }
 
-export function ChartCard({
+export const ChartCard = memo(function ChartCard({
   title,
   subtitle,
   action,
@@ -24,7 +26,9 @@ export function ChartCard({
   children,
   className,
   chartHeight = "h-64",
+  headingLevel = "h3",
 }: ChartCardProps) {
+  const Heading = headingLevel;
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -34,7 +38,7 @@ export function ChartCard({
     >
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-display font-semibold">{title}</h3>
+          <Heading className="font-display font-semibold">{title}</Heading>
           {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         {action && <div className="shrink-0">{action}</div>}
@@ -58,4 +62,4 @@ export function ChartCard({
       )}
     </motion.div>
   );
-}
+});

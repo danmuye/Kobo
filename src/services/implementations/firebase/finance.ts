@@ -2,12 +2,14 @@ import type {
   Transaction, Budget, BudgetHistoryEntry, Goal, Debt, Account,
 } from "@/types";
 import type { GoalHistoryEntry } from "@/services/goal-insights";
+import type { DebtHistoryEntry } from "@/services/debt-history";
 import type {
   IFinanceService, ITransactionService, IBudgetService,
   IGoalService, IDebtService, IAccountService,
 } from "@/services/interfaces";
 import { useFinanceStore } from "@/store/finance";
 import { createCollection, type FirestoreCollection } from "@/services/firebase/firestore";
+import { getFirestoreDb } from "@/services/firebase/config";
 
 class FirebaseTransactionService implements ITransactionService {
   private colPromise: Promise<FirestoreCollection<Transaction>>;
@@ -205,6 +207,22 @@ class FirebaseAccountService implements IAccountService {
   }
 }
 
+async function batchDeleteCollection(path: string): Promise<void> {
+  const db = getFirestoreDb();
+  const fs = await import("firebase/firestore");
+  const colRef = fs.collection(db, path);
+  const BATCH_SIZE = 500;
+
+  while (true) {
+    const snap = await fs.getDocs(fs.query(colRef, fs.limit(BATCH_SIZE)));
+    if (snap.docs.length === 0) break;
+
+    const batch = fs.writeBatch(db);
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+}
+
 export class FirebaseFinanceService implements IFinanceService {
   transactions: FirebaseTransactionService;
   budgets: FirebaseBudgetService;
@@ -224,21 +242,24 @@ export class FirebaseFinanceService implements IFinanceService {
 
   async init(): Promise<void> {
     const uid = this.userId;
-    const [transactions, budgets, goals, debts, accounts, goalHistory] = await Promise.all([
+    const [transactions, budgets, goals, debts, accounts, goalHistory, budgetHistory, debtHistory] = await Promise.all([
       createCollection<Transaction>(`users/${uid}/transactions`).then((c) => c.getAll()),
       createCollection<Budget>(`users/${uid}/budgets`).then((c) => c.getAll()),
       createCollection<Goal>(`users/${uid}/goals`).then((c) => c.getAll()),
       createCollection<Debt>(`users/${uid}/debts`).then((c) => c.getAll()),
       createCollection<Account>(`users/${uid}/accounts`).then((c) => c.getAll()),
       createCollection<GoalHistoryEntry>(`users/${uid}/goalHistory`).then((c) => c.getAll()),
+      createCollection<BudgetHistoryEntry>(`users/${uid}/budgetHistory`).then((c) => c.getAll()),
+      createCollection<DebtHistoryEntry>(`users/${uid}/debtHistory`).then((c) => c.getAll()),
     ]);
     useFinanceStore.getState().restoreData({
       transactions,
       budgets,
-      budgetHistory: [],
+      budgetHistory,
       goals,
       goalHistory,
       debts,
+      debtHistory,
       accounts,
     });
   }
@@ -246,18 +267,17 @@ export class FirebaseFinanceService implements IFinanceService {
   async clearAllData(): Promise<void> {
     useFinanceStore.getState().clearAllData();
     const uid = this.userId;
-    const colTasks = await Promise.all([
-      createCollection<Transaction>(`users/${uid}/transactions`),
-      createCollection<Budget>(`users/${uid}/budgets`),
-      createCollection<Goal>(`users/${uid}/goals`),
-      createCollection<GoalHistoryEntry>(`users/${uid}/goalHistory`),
-      createCollection<Debt>(`users/${uid}/debts`),
-      createCollection<Account>(`users/${uid}/accounts`),
-    ]);
-    const deleteTasks = colTasks.map((col) =>
-      col.getAll().then((items) => Promise.all(items.map((i) => col.delete(i.id)))),
-    );
-    await Promise.allSettled(deleteTasks);
+    const paths = [
+      `users/${uid}/transactions`,
+      `users/${uid}/budgets`,
+      `users/${uid}/goals`,
+      `users/${uid}/goalHistory`,
+      `users/${uid}/debts`,
+      `users/${uid}/debtHistory`,
+      `users/${uid}/accounts`,
+      `users/${uid}/budgetHistory`,
+    ];
+    await Promise.all(paths.map(batchDeleteCollection));
   }
 
   async restoreData(data: {
@@ -267,6 +287,7 @@ export class FirebaseFinanceService implements IFinanceService {
     goals: Goal[];
     goalHistory?: GoalHistoryEntry[];
     debts: Debt[];
+    debtHistory?: DebtHistoryEntry[];
     accounts: Account[];
   }): Promise<void> {
     useFinanceStore.getState().restoreData(data);

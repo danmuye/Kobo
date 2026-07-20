@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { motion } from "framer-motion";
 
 interface Props {
@@ -6,7 +7,7 @@ interface Props {
   action?: React.ReactNode;
 }
 
-export function PageHeader({ title, subtitle, action }: Props) {
+export const PageHeader = memo(function PageHeader({ title, subtitle, action }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }}
@@ -20,4 +21,4 @@ export function PageHeader({ title, subtitle, action }: Props) {
       {action && <div className="flex flex-wrap gap-2">{action}</div>}
     </motion.div>
   );
-}
+});

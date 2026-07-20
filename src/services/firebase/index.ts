@@ -25,7 +25,7 @@ export {
 export { createCollection, where, orderBy, limit } from "./firestore";
 export type { FirestoreCollection, QueryConstraint } from "./firestore";
 
-export { uploadFile, uploadBase64, getFileUrl, deleteFile } from "./storage";
+export { FirebaseStorageService } from "../implementations/firebase-storage/storage";
 
 export {
   FirebaseServiceError,
@@ -35,7 +35,7 @@ export {
 } from "./errors";
 export type { FirebaseErrorCode } from "./errors";
 
-export { withRetry } from "./retry";
+export { withRetry, getWriteQueue, addToWriteQueue, removeFromWriteQueue, retryQueuedWrites, setupRetryQueue } from "./retry";
 export type { RetryOptions } from "./retry";
 
 export { sanitizeFirestoreData } from "./sanitize";

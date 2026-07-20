@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { memo, type CSSProperties } from "react";
 
 const baseStyle: CSSProperties = {
   background: "hsl(var(--popover))",
@@ -15,7 +15,7 @@ interface ChartTooltipProps {
   labelFormatter?: (label: string) => string;
 }
 
-export function ChartTooltip({ active, payload, label, formatter, labelFormatter }: ChartTooltipProps) {
+export const ChartTooltip = memo(function ChartTooltip({ active, payload, label, formatter, labelFormatter }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
   return (
     <div style={baseStyle} className="px-3 py-2 shadow-lg">
@@ -30,4 +30,4 @@ export function ChartTooltip({ active, payload, label, formatter, labelFormatter
       ))}
     </div>
   );
-}
+});

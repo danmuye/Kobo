@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Target, Shield, Plane, Laptop, Home, MoreVertical, Eye, Edit3, Trash2, BarChart3, Sparkles, Tag, Heart, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -73,31 +74,37 @@ function ProgressBar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-export function GoalCard({ goal, onEdit, onDelete, onAddContribution, onViewTransactions, onViewAnalytics }: GoalCardProps) {
+export const GoalCard = memo(function GoalCard({ goal, onEdit, onDelete, onAddContribution, onViewTransactions, onViewAnalytics }: GoalCardProps) {
   const { metrics } = goal;
-  const Icon = iconMap[goal.icon] ?? Target;
-  const statusInfo: GoalStatusInfo = getGoalStatus(metrics.percentage, metrics.isCompleted, metrics.isExpired);
+  const Icon = useMemo(() => iconMap[goal.icon] ?? Target, [goal.icon]);
+  const statusInfo: GoalStatusInfo = useMemo(
+    () => getGoalStatus(metrics.percentage, metrics.isCompleted, metrics.isExpired),
+    [metrics.percentage, metrics.isCompleted, metrics.isExpired],
+  );
   const { label, tone, value } = statusInfo;
 
-  const toneBg: Record<string, string> = {
+  const toneBg: Record<string, string> = useMemo(() => ({
     blue: "bg-blue-500/15 text-blue-500 hover:bg-blue-500/15",
     green: "bg-green-500/15 text-green-500 hover:bg-green-500/15",
     amber: "bg-amber-500/15 text-amber-500 hover:bg-amber-500/15",
     purple: "bg-purple-500/15 text-purple-500 hover:bg-purple-500/15",
     destructive: "bg-destructive/15 text-destructive hover:bg-destructive/15",
-  };
+  }), []);
 
-  const toneColors: Record<string, string> = {
+  const toneColors: Record<string, string> = useMemo(() => ({
     blue: "hsl(217 91% 60%)",
     green: "hsl(142 71% 45%)",
     amber: "hsl(38 92% 50%)",
     purple: "hsl(271 76% 53%)",
     destructive: "hsl(0 84% 60%)",
-  };
+  }), []);
 
-  const barColor = toneColors[tone] ?? toneColors.blue;
+  const barColor = useMemo(() => toneColors[tone] ?? toneColors.blue, [toneColors, tone]);
 
-  const goalTags = goal.tags.filter((t) => GOAL_TAG_OPTIONS.includes(t));
+  const goalTags = useMemo(
+    () => goal.tags.filter((t) => GOAL_TAG_OPTIONS.includes(t)),
+    [goal.tags],
+  );
 
   return (
     <motion.div
@@ -148,7 +155,7 @@ export function GoalCard({ goal, onEdit, onDelete, onAddContribution, onViewTran
               </Badge>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Goal actions">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -264,4 +271,4 @@ export function GoalCard({ goal, onEdit, onDelete, onAddContribution, onViewTran
       </div>
     </motion.div>
   );
-}
+});

@@ -44,7 +44,7 @@ export default function ForgotPassword() {
 
   if (isSubmitSuccessful) {
     return (
-      <div
+      <main
         className="flex min-h-screen items-center justify-center bg-background p-4"
         style={{
           backgroundImage:
@@ -67,12 +67,12 @@ export default function ForgotPassword() {
             <Link to="/login">Back to sign in</Link>
           </Button>
         </motion.div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div
+    <main
       className="flex min-h-screen items-center justify-center bg-background p-4"
       style={{
         backgroundImage:
@@ -153,6 +153,6 @@ export default function ForgotPassword() {
           </div>
         </form>
       </motion.div>
-    </div>
+    </main>
   );
 }

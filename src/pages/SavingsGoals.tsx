@@ -171,7 +171,7 @@ export default function SavingsGoals() {
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 mb-4">
                 <Target className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="font-display font-semibold text-lg">No active goals</h3>
+              <h2 className="font-display font-semibold text-lg">No active goals</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md">
                 Create your first savings goal and track progress automatically from your transactions.
               </p>
@@ -200,7 +200,7 @@ export default function SavingsGoals() {
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-purple-500/10 mb-4">
                 <Sparkles className="h-8 w-8 text-purple-500" />
               </div>
-              <h3 className="font-display font-semibold text-lg">No completed goals yet</h3>
+              <h2 className="font-display font-semibold text-lg">No completed goals yet</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md">
                 Goals will appear here once you reach your savings target. Keep going!
               </p>
@@ -228,7 +228,7 @@ export default function SavingsGoals() {
               <div className="grid h-16 w-16 place-items-center rounded-2xl bg-muted mb-4">
                 <Archive className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="font-display font-semibold text-lg">No history yet</h3>
+              <h2 className="font-display font-semibold text-lg">No history yet</h2>
               <p className="text-sm text-muted-foreground mt-1 max-w-md">
                 Completed goals will be archived here with their final metrics.
               </p>
@@ -239,7 +239,7 @@ export default function SavingsGoals() {
                 <div key={entry.id} className="rounded-lg border bg-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h4 className="font-medium">{entry.goalName}</h4>
+                      <h3 className="font-medium">{entry.goalName}</h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Completed {formatDate(entry.completionDate)} &bull; {entry.daysToComplete} days
                       </p>

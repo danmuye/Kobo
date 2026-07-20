@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, Plus, ArrowUpRight, ArrowDownRight, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, Target, Plus, ArrowUpRight, ArrowDownRight, Search, ChevronLeft, ChevronRight, ReceiptText, PieChart } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   LineChart, Line, PieChart as RPieChart, Pie, Cell, AreaChart, Area,
@@ -15,6 +15,7 @@ import { formatNaira, formatDate } from "@/lib/format";
 import { useDashboardMetrics } from "@/features/dashboard/hooks";
 import { useBudgetsPage } from "@/features/budgets/hooks";
 import { filterAndSortTransactions, paginateTransactions, type DashboardTransactionFilter, type DashboardTransactionSort } from "@/features/dashboard/utils";
+import { EmptyState } from "@/components/common/EmptyState";
 import { useAuthContext } from "@/contexts/auth-context";
 
 const COLORS = [
@@ -88,7 +89,7 @@ export default function Dashboard() {
         >
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-display font-semibold">Income vs Expenses</h3>
+              <h2 className="font-display font-semibold">Income vs Expenses</h2>
               <p className="text-xs text-muted-foreground">Last 6 months</p>
             </div>
           </div>
@@ -118,7 +119,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="rounded-xl border border-border bg-card p-5 shadow-elegant"
         >
-          <h3 className="font-display font-semibold mb-1">Spending by Category</h3>
+          <h2 className="font-display font-semibold mb-1">Spending by Category</h2>
           <p className="text-xs text-muted-foreground mb-4">Top categories</p>
           <div className="h-56">
             <ResponsiveContainer>
@@ -156,7 +157,7 @@ export default function Dashboard() {
       <section className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-xl border border-border bg-card p-5 shadow-elegant">
-          <h3 className="font-display font-semibold mb-1">Monthly Expenses</h3>
+          <h2 className="font-display font-semibold mb-1">Monthly Expenses</h2>
           <p className="text-xs text-muted-foreground mb-4">Trend across 6 months</p>
           <div className="h-64">
             <ResponsiveContainer>
@@ -176,7 +177,7 @@ export default function Dashboard() {
 
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="rounded-xl border border-border bg-card p-5 shadow-elegant">
-          <h3 className="font-display font-semibold mb-1">Cash Flow</h3>
+          <h2 className="font-display font-semibold mb-1">Cash Flow</h2>
           <p className="text-xs text-muted-foreground mb-4">Net income each month</p>
           <div className="h-64">
             <ResponsiveContainer>
@@ -209,7 +210,7 @@ export default function Dashboard() {
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-display font-semibold">Monthly Savings Contributions</h3>
+            <h2 className="font-display font-semibold">Monthly Savings Contributions</h2>
             <p className="text-xs text-muted-foreground">Last 6 months</p>
           </div>
           <div className="flex items-center gap-2">
@@ -246,11 +247,21 @@ export default function Dashboard() {
             <Link to="/budgets">Manage Budgets</Link>
           </Button>
         </div>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {budgetsWithProgress.slice(0, 8).map((b) => (
-            <BudgetCard key={b.id} budget={b} metrics={b.metrics} />
-          ))}
-        </div>
+        {budgetsWithProgress.length === 0 ? (
+          <EmptyState
+            icon={PieChart}
+            title="No budgets yet"
+            description="Create a budget to start tracking your spending."
+            action={{ label: "Go to Budgets", onClick: () => window.location.href = "/budgets" }}
+            compact
+          />
+        ) : (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {budgetsWithProgress.slice(0, 8).map((b) => (
+              <BudgetCard key={b.id} budget={b} metrics={b.metrics} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Recent Transactions */}
@@ -267,17 +278,17 @@ export default function Dashboard() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search transactions"
-                className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus:border-ring transition"
+                className="h-9 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition"
                 aria-label="Search transactions"
               />
             </div>
-            <select value={filter} onChange={(e) => setFilter(e.target.value as DashboardTransactionFilter)} className="h-9 rounded-lg border border-input bg-background px-3 text-sm">
+            <select value={filter} onChange={(e) => setFilter(e.target.value as DashboardTransactionFilter)} className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Filter by transaction type">
               <option value="all">All</option>
               <option value="income">Income</option>
               <option value="expense">Expense</option>
               <option value="transfer">Transfer</option>
             </select>
-            <select value={sort} onChange={(e) => setSort(e.target.value as DashboardTransactionSort)} className="h-9 rounded-lg border border-input bg-background px-3 text-sm">
+            <select value={sort} onChange={(e) => setSort(e.target.value as DashboardTransactionSort)} className="h-9 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Sort by">
               <option value="date-desc">Newest</option>
               <option value="date-asc">Oldest</option>
               <option value="amount-desc">Highest</option>
