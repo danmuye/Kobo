@@ -11,25 +11,24 @@ export default defineConfig({
       overlay: false,
     },
   },
+
   plugins: [react()],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "@tanstack/react-query",
+      "@tanstack/query-core",
+    ],
   },
+
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules/recharts")) return "chunk-recharts";
-          if (id.includes("node_modules/framer-motion")) return "chunk-framer";
-          if (id.includes("node_modules/firebase")) return "chunk-firebase";
-          if (id.includes("node_modules/lucide-react")) return "chunk-icons";
-          if (id.includes("node_modules/@radix-ui")) return "chunk-radix";
-          if (id.includes("node_modules")) return "chunk-vendor";
-        },
-      },
-    },
+    sourcemap: false,
   },
 });
