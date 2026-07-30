@@ -115,7 +115,7 @@ export default function Dashboard() {
   const hasBudgets = budgets.length > 0;
 
   return (
-    <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6 space-y-6 lg:space-y-8 w-full">
+    <div className="py-4 sm:py-5 lg:py-6 space-y-6 lg:space-y-8 w-full">
       {/* Welcome Section */}
       <div className="flex items-start justify-between">
         <div>

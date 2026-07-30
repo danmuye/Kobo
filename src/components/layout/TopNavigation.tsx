@@ -1,10 +1,13 @@
 import { useMemo, useState, useRef, useEffect, lazy, Suspense } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Bell, Plus, Moon, Sun, Coins, LayoutDashboard, ArrowLeftRight, PieChart, Target, CreditCard, Landmark, Wallet, BarChart3, Settings, X } from "lucide-react";
+import { Search, Bell, Plus, Moon, Sun, Coins, Menu, LayoutDashboard, ArrowLeftRight, PieChart, Target, CreditCard, Landmark, Wallet, BarChart3, Settings, X } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet, SheetContent, SheetTrigger, SheetClose,
+} from "@/components/ui/sheet";
 import { useFinanceStore } from "@/store/finance";
 import { useNotificationStore } from "@/store/notifications";
 import { useTransactionModal } from "@/store/transaction-modal";
@@ -32,9 +35,11 @@ export default function TopNavigation() {
   const [query, setQuery] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
   const { theme, toggle } = useTheme();
   const { user } = useAuthContext();
   const transactions = useFinanceStore((s) => s.transactions);
@@ -91,46 +96,55 @@ export default function TopNavigation() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 items-center gap-4 lg:gap-6 px-4 sm:px-6 lg:px-8 max-w-[1600px] w-full">
-        {/* Left: Logo + Nav */}
-        <div className="flex items-center gap-1">
-          <div className="flex items-center gap-2 mr-4">
-            <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500">
-              <Coins className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-display text-base font-bold text-foreground hidden sm:inline">Kobo</span>
-          </div>
-          <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-thin" aria-label="Main navigation">
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  cn(
-                    "relative flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
-                    isActive
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-muted-foreground hover:text-foreground",
-                  )
-                }
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <div className="mx-auto flex h-16 items-center gap-4 lg:gap-6 px-4 sm:px-6 lg:px-8 max-w-[1600px] w-full">
+          {/* Left: Logo + Nav */}
+          <div className="flex items-center gap-1">
+            <SheetTrigger asChild>
+              <button
+                className="lg:hidden grid h-9 w-9 place-items-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Open navigation menu"
               >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <motion.span
-                        layoutId="nav-pill"
-                        className="absolute inset-0 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                    <link.icon className="h-4 w-4" />
-                    <span>{link.label}</span>
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
+                <Menu className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <div className="flex items-center gap-2 mr-2 sm:mr-4">
+              <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 shrink-0">
+                <Coins className="h-4 w-4 text-white" />
+              </div>
+              <span className="font-display text-base font-bold text-foreground hidden sm:inline">Kobo</span>
+            </div>
+            <nav className="hidden lg:flex items-center gap-0.5 overflow-x-auto scrollbar-thin" aria-label="Main navigation">
+              {navLinks.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 text-sm font-medium rounded-full transition-colors whitespace-nowrap",
+                      isActive
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground hover:text-foreground",
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-pill"
+                          className="absolute inset-0 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15"
+                          transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <link.icon className="h-4 w-4" />
+                      <span>{link.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
 
         {/* Center: Search */}
         <div ref={searchRef} className="relative flex-1 max-w-md mx-auto">
@@ -234,6 +248,49 @@ export default function TopNavigation() {
           </div>
         </div>
       </div>
+
+      <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 border-r-border/50">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center gap-2.5 px-5 pt-6 pb-4">
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500 shrink-0">
+              <Coins className="h-5 w-5 text-white" />
+            </div>
+            <span className="font-display text-lg font-bold text-foreground">Kobo</span>
+          </div>
+          <div className="h-px bg-border/50 mx-5" />
+          <nav className="flex-1 overflow-y-auto py-3 px-3" aria-label="Mobile navigation">
+            <ul className="space-y-1">
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.to;
+                const Icon = link.icon;
+                return (
+                  <li key={link.to}>
+                    <SheetClose asChild>
+                      <NavLink
+                        to={link.to}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors min-h-[44px]",
+                          isActive
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span>{link.label}</span>
+                      </NavLink>
+                    </SheetClose>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+          <div className="h-px bg-border/50 mx-5" />
+          <div className="px-5 py-4">
+            <p className="text-xs text-muted-foreground">Kobo Finance Tracker</p>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
     </header>
   );
 }

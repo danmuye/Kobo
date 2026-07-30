@@ -18,7 +18,7 @@ export default function AppLayout() {
 
       <TopNavigation />
 
-      <main id="main-content" className="animate-fade-in">
+      <main id="main-content" className="animate-fade-in max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <Outlet />
       </main>
 
