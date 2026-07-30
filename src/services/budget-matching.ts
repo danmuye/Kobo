@@ -22,15 +22,16 @@ export interface BudgetMetrics {
   isOverBudget: boolean;
 }
 
-export type BudgetStatusValue = "on-track" | "near-limit" | "exceeded";
+export type BudgetStatusValue = "on-track" | "near-limit" | "completed" | "exceeded";
 export interface BudgetStatusInfo {
-  label: "On Track" | "Near Limit" | "Exceeded";
+  label: "On Track" | "Near Limit" | "Completed" | "Exceeded";
   tone: "success" | "warning" | "destructive";
   value: BudgetStatusValue;
 }
 
 export function getBudgetStatus(percentage: number): BudgetStatusInfo {
   if (percentage > 100) return { label: "Exceeded", tone: "destructive", value: "exceeded" };
+  if (percentage === 100) return { label: "Completed", tone: "success", value: "completed" };
   if (percentage >= 90) return { label: "Near Limit", tone: "warning", value: "near-limit" };
   if (percentage >= 70) return { label: "Near Limit", tone: "warning", value: "near-limit" };
   return { label: "On Track", tone: "success", value: "on-track" };

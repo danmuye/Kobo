@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFinanceStore } from "@/store/finance";
 import { computeAccountBalance } from "@/services/account-balance";
 import { emitFinancialEvent } from "@/services/notifications";
+import { getFinanceService } from "@/services/service-provider";
 import { formatNaira } from "@/lib/format";
 import type { Goal } from "@/types";
 
@@ -20,7 +21,7 @@ interface GoalContributionDialogProps {
 export function GoalContributionDialog({ goal, open, onOpenChange }: GoalContributionDialogProps) {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
-  const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const svc = getFinanceService();
 
   const [amount, setAmount] = useState<string>("");
   const [selectedAccount, setSelectedAccount] = useState<string>("");
@@ -62,7 +63,7 @@ export function GoalContributionDialog({ goal, open, onOpenChange }: GoalContrib
         .filter(Boolean);
       if (wallet.trim()) tagList.push(wallet.trim());
 
-      addTransaction({
+      await svc.transactions.create({
         date: new Date(date).toISOString(),
         description: `Contribution to ${goal.name}`,
         category: "Savings Contribution",

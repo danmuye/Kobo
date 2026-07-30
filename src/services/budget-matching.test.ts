@@ -22,7 +22,11 @@ describe("getBudgetStatus", () => {
     expect(getBudgetStatus(150)).toEqual({ label: "Exceeded", tone: "destructive", value: "exceeded" });
   });
 
-  it("returns near-limit at 90-100%", () => {
+  it("returns completed at 100%", () => {
+    expect(getBudgetStatus(100)).toEqual({ label: "Completed", tone: "success", value: "completed" });
+  });
+
+  it("returns near-limit at 90-99%", () => {
     expect(getBudgetStatus(95)).toMatchObject({ value: "near-limit" });
     expect(getBudgetStatus(90)).toMatchObject({ value: "near-limit" });
   });

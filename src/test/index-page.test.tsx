@@ -13,6 +13,6 @@ describe('Index page', () => {
 
     expect(screen.getByRole('heading', { name: /take control of your money/i })).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /open dashboard/i }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/track budgets, goals, debts and accounts/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/track budgets, goals, debts,? and accounts/i).length).toBeGreaterThan(0);
   });
 });

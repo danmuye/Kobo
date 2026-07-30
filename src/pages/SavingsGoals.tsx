@@ -57,7 +57,7 @@ const emptyGoal: GoalFormValues = {
 };
 
 export default function SavingsGoals() {
-  const { goals: goalsWithMetrics, addGoal, updateGoal, deleteGoal, invalidateMetric } = useGoalsPage();
+  const { goals: goalsWithMetrics, addGoal, updateGoal, deleteGoal } = useGoalsPage();
   const transactions = useFinanceStore((s) => s.transactions);
   const goalHistory = useFinanceStore((s) => s.goalHistory);
   const addGoalHistory = useFinanceStore((s) => s.addGoalHistory);

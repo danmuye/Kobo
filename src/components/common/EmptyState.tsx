@@ -27,7 +27,7 @@ export const EmptyState = memo(function EmptyState({
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
       role="status"
       aria-label={title}
       className={cn(
@@ -37,7 +37,7 @@ export const EmptyState = memo(function EmptyState({
       )}
     >
       <div className={cn(
-        "grid place-items-center rounded-2xl bg-muted/50 mb-4",
+        "grid place-items-center rounded-[20px] bg-muted/50 mb-4",
         compact ? "h-12 w-12" : "h-16 w-16",
       )}>
         <Icon className={cn(compact ? "h-6 w-6" : "h-8 w-8", "text-muted-foreground")} />

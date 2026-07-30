@@ -1,5 +1,23 @@
 import "@testing-library/jest-dom";
 
+class IntersectionObserverMock {
+  constructor(callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {
+    callback([], {} as IntersectionObserver);
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+  root: Element | null = null;
+  rootMargin: string = "";
+  thresholds: ReadonlyArray<number> = [];
+}
+if (typeof globalThis.IntersectionObserver === "undefined") {
+  globalThis.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
+}
+
 class ResizeObserverMock {
   callback: ResizeObserverCallback;
   constructor(callback: ResizeObserverCallback) {
