@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useFinanceStore } from "@/store/finance";
+import { getFinanceService } from "@/services/service-provider";
 import { computeAccountBalance } from "@/services/account-balance";
 import { emitFinancialEvent } from "@/services/notifications";
 import { formatNaira } from "@/lib/format";
@@ -20,7 +21,7 @@ interface DebtPaymentDialogProps {
 export function DebtPaymentDialog({ debt, open, onOpenChange }: DebtPaymentDialogProps) {
   const accounts = useFinanceStore((s) => s.accounts);
   const transactions = useFinanceStore((s) => s.transactions);
-  const addTransaction = useFinanceStore((s) => s.addTransaction);
+  const svc = getFinanceService();
 
   const [amount, setAmount] = useState<string>("");
   const [selectedAccount, setSelectedAccount] = useState<string>("");
@@ -62,7 +63,7 @@ export function DebtPaymentDialog({ debt, open, onOpenChange }: DebtPaymentDialo
         .filter(Boolean);
       if (wallet.trim()) tagList.push(wallet.trim());
 
-      addTransaction({
+      await svc.transactions.create({
         date: new Date(date).toISOString(),
         description: `Payment to ${debt.name}`,
         category: "Debt Payment",

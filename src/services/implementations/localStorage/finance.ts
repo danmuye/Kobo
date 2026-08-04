@@ -2,6 +2,7 @@ import type {
   Transaction, Budget, BudgetHistoryEntry, Goal, Debt, Account,
 } from "@/types";
 import type { GoalHistoryEntry } from "@/services/goal-insights";
+import type { DebtHistoryEntry } from "@/services/debt-history";
 import type {
   IFinanceService, ITransactionService, IBudgetService,
   IGoalService, IDebtService, IAccountService,
@@ -19,13 +20,14 @@ function persistFinanceState(): void {
     goals: state.goals ?? [],
     goalHistory: state.goalHistory ?? [],
     debts: state.debts ?? [],
+    debtHistory: state.debtHistory ?? [],
     accounts: state.accounts ?? [],
   }));
 }
 
 function loadFinanceState(): {
   transactions: Transaction[]; budgets: Budget[]; budgetHistory: BudgetHistoryEntry[]; goals: Goal[];
-  goalHistory: GoalHistoryEntry[]; debts: Debt[]; accounts: Account[];
+  goalHistory: GoalHistoryEntry[]; debts: Debt[]; debtHistory: DebtHistoryEntry[]; accounts: Account[];
 } | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -44,6 +46,7 @@ function loadFinanceState(): {
     goals: Array.isArray(data.goals) ? (data.goals as Goal[]) : [],
     goalHistory: Array.isArray(data.goalHistory) ? (data.goalHistory as GoalHistoryEntry[]) : [],
     debts: Array.isArray(data.debts) ? (data.debts as Debt[]) : [],
+    debtHistory: Array.isArray(data.debtHistory) ? (data.debtHistory as DebtHistoryEntry[]) : [],
     accounts: Array.isArray(data.accounts) ? (data.accounts as Account[]) : [],
   };
 }

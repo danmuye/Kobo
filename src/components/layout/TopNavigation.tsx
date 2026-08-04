@@ -231,6 +231,7 @@ export default function TopNavigation() {
                 onMarkAllRead={() => nsvc.markAllAsRead()}
                 onDelete={(id) => nsvc.remove(id)}
                 onClearAll={() => nsvc.clearAll()}
+                onClose={() => setNotifOpen(false)}
               />
             </Suspense>
           </div>
